@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- RynthLevistras: the Levistras server plugin (2026-10-21). The build is shared
+       (..\Shared\ServerPack\ServerPlugin.props); ServerData.cs holds what is known about the server.
+       RynthCore's launcher catalog (RynthCore.App\KnownServerCatalog.cs, id "levistras") already names it.
+       Its quest pack (Resources\quests.levistras.csv, Oracle of Dereth's Levistras rows) came from RynthOracle
+       and is offered back to it through "RynthServer.QuestPack" (ServerPlugin.props embeds it). -->
+  <PropertyGroup>
+    <AssemblyName>RynthCore.Plugin.RynthLevistras</AssemblyName>
+    <Version>0.1.0</Version>
+    <RynthPluginServerId>levistras</RynthPluginServerId>
+    <RynthPluginServerName>Levistras</RynthPluginServerName>
+    <RynthPluginServerHosts>levistras.acportalstorm.com</RynthPluginServerHosts>
+    <RynthPluginServerWorldNames>Levistras</RynthPluginServerWorldNames>
+    <RynthPluginDescription>Levistras only: the server card (rules, account limits, botting policy, account setup) in the Mini Remote, and Levistras's quests in RynthOracle.</RynthPluginDescription>
+  </PropertyGroup>
+
+  <Import Project="..\Shared\ServerPack\ServerPlugin.props" />
+
+  <ItemGroup>
+    <None Include="THIRD_PARTY_NOTICES.md" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

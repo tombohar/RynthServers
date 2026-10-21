@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    RynthServers builds beside RynthSuite and RynthCore (C:\Projects\warchain\{RynthCore,RynthSuite,RynthServers},
+    or the release trees): the server plugins compile RynthSuite's shared contracts (its Plugins\Shared) and
+    RynthCore's plugin SDK from those checkouts. Pass -p:RynthSuiteRoot=<dir>\ to build against another one.
+  -->
+  <PropertyGroup>
+    <RynthSuiteRoot Condition="'$(RynthSuiteRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'RynthSuite'))</RynthSuiteRoot>
+  </PropertyGroup>
+</Project>

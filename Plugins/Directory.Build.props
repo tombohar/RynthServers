@@ -1,0 +1,5 @@
+<Project>
+  <!-- The repo's RynthSuiteRoot, then RynthSuite's plugin settings (GC segments, manifest fields): one copy of them. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\Directory.Build.props" />
+  <Import Project="$(RynthSuiteRoot)Plugins\Directory.Build.props" />
+</Project>

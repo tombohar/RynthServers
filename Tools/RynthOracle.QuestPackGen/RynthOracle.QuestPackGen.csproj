@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Builds Aelrynth's quest pack for RynthOracle (Plugins\RynthCore.Plugin.RynthAelrynth\Resources\
+    quests.aelrynth.csv: the server plugin's, which offers it to RynthOracle since 2026-10-21) from a
+    world-database BACKUP DUMP (mysqldump .sql or .sql.gz), never from a live database: by default the
+    newest C:\Aeshnidae\backups\aeshnidae_world-*.sql.gz. It reads RynthOracle's retail list and the
+    other server plugins' packs for names. Re-run it after content changes, then rebuild RynthAelrynth.
+
+    Run (from this folder):
+      dotnet run -c Release
+      dotnet run -c Release (two dashes) -dump file.sql.gz -resources oracleResourcesDir -plugins serverPluginsDir -out file.csv -server Aelrynth
+    RynthOracle's retail list is read from the sibling RynthSuite checkout (..\RynthSuite\Plugins\
+    RynthCore.Plugin.RynthOracle\Resources); the packs are this repo's Plugins\*\Resources.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>RynthOracle.QuestPackGen</RootNamespace>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,4 @@
+<Project>
+  <!-- RynthSuite's plugin targets (the SDK's manifest writer, from the sibling RynthCore). -->
+  <Import Project="$(RynthSuiteRoot)Plugins\Directory.Build.targets" />
+</Project>
