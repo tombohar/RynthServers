@@ -204,14 +204,13 @@ internal static class ServerPackModelTests
         Check.Eq(server.GetProperty("id").GetString(), "coldeve", "server id lower-cased");
         Check.Eq(server.GetProperty("hosts")[0].GetString(), "play.coldeve.ac", "hosts");
         Check.Eq(server.GetProperty("worldNames")[0].GetString(), "Coldeve", "world names");
-        JsonElement card = root.GetProperty("contributions")[0];
-        Check.Eq(card.GetProperty("section").GetString(), "server", "in the Server section (not Session Stats)");
-        JsonElement section = root.GetProperty("sections")[0];
-        Check.Eq(section.GetProperty("id").GetString(), "server", "the Server section is declared");
-        Check.Eq(section.GetProperty("label").GetString(), "Server", "its label");
-        Check.Eq(section.GetProperty("order").GetInt32(), 50, "after Session Stats, before Map");
-        Check.Eq(card.GetProperty("server").GetString(), "coldeve", "only while Coldeve is active");
-        Check.Eq(card.GetProperty("surface").GetString(), "section:server-coldeve", "the card's surface");
+        // Tom 10-24: every server its own spot on RynthCore's bar, not mixed in with the rest.
+        Check.False(root.TryGetProperty("contributions", out _) || root.TryGetProperty("sections", out _), "nothing in the Mini Remote");
+        JsonElement window = root.GetProperty("windows")[0];
+        Check.Eq(window.GetProperty("title").GetString(), "Coldeve", "its own window, named for the server");
+        Check.True(window.GetProperty("bar").GetBoolean(), "with a button on the bar");
+        Check.Eq(window.GetProperty("server").GetString(), "coldeve", "only while Coldeve is active");
+        Check.Eq(window.GetProperty("surface").GetString(), "window:server", "drawn by the plugin");
 
         var quoted = new ServerPackInfo("odd", "Odd \"Name\"\n", new[] { "a\\b" }, Array.Empty<string>());
         using JsonDocument odd = JsonDocument.Parse(ServerPackModel.BuildSectionsJson(quoted, "RynthOdd"));

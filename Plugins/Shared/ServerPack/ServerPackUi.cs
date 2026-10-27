@@ -49,28 +49,32 @@ internal sealed class ServerPackUi
         if (!WindowOpen) return;
         ImGui.SetNextWindowSize(new Vector2(_pages.Count > 0 ? 560 : 460, 520), ImGuiCond.FirstUseEver);
         bool open = WindowOpen;
-        if (ImGui.Begin(_windowTitle, ref open))
-        {
-            if (_pages.Count == 0) RenderBody();
-            else if (ImGui.BeginTabBar("##server_tabs_" + _model.Info.Id))
-            {
-                if (ImGui.BeginTabItem("Server##card"))
-                {
-                    RenderBody();
-                    ImGui.EndTabItem();
-                }
-                foreach (ServerPage page in _pages)
-                {
-                    if (!ImGui.BeginTabItem(page.Label + "##page_" + page.Id)) continue;
-                    if (ImGui.BeginChild("##page_body_" + page.Id)) page.Draw();
-                    ImGui.EndChild();
-                    ImGui.EndTabItem();
-                }
-                ImGui.EndTabBar();
-            }
-        }
+        if (ImGui.Begin(_windowTitle, ref open)) RenderTabs();
         ImGui.End();
         WindowOpen = open;
+    }
+
+    /// <summary>
+    /// Everything the server has, into the current window: the card, then its pages as tabs when it has
+    /// some. The server's window on RynthCore's bar (ServerPackModel's "windows") and the standalone one.
+    /// </summary>
+    public void RenderTabs()
+    {
+        if (_pages.Count == 0) { RenderBody(); return; }
+        if (!ImGui.BeginTabBar("##server_tabs_" + _model.Info.Id)) return;
+        if (ImGui.BeginTabItem("Server##card"))
+        {
+            RenderBody();
+            ImGui.EndTabItem();
+        }
+        foreach (ServerPage page in _pages)
+        {
+            if (!ImGui.BeginTabItem(page.Label + "##page_" + page.Id)) continue;
+            if (ImGui.BeginChild("##page_body_" + page.Id)) page.Draw();
+            ImGui.EndChild();
+            ImGui.EndTabItem();
+        }
+        ImGui.EndTabBar();
     }
 
     /// <summary>The card's content, into the current window.</summary>

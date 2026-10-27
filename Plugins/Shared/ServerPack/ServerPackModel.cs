@@ -148,24 +148,26 @@ internal sealed class ServerPackModel
 
     // ── RynthPluginGetSectionsJson ────────────────────────────────────────
 
-    /// <summary>The Mini Remote surface of the server card.</summary>
+    /// <summary>The Mini Remote surface of the server card (the Mini Remote no longer asks for it since 2026-10-24).</summary>
     public static string SurfaceFor(string serverId) => "section:server-" + serverId;
 
     /// <summary>
-    /// The Mini Remote section the server cards share: right after Session Stats (core order 0) and
-    /// before Map (100). Every server plugin declares it the same way; the first declaration wins.
+    /// The server's window on RynthCore's bar (plugin windows, API v89): its surface. Every server
+    /// plugin uses the same one; only the active server's plugin declares its window.
     /// </summary>
-    public const string SectionId = "server";
-    public const string SectionLabel = "Server";
-    public const int SectionOrder = 50;
+    public const string WindowSurface = "window:server";
+    public const string WindowId = "server";
+    /// <summary>Phosphor's castle turret: the server's bar button.</summary>
+    public const string WindowIcon = "";
 
     /// <summary>
-    /// The plugin's sections manifest (schema 1): its server, for RynthCore to detect, and the server
-    /// card in the shared "Server" section, shown only while that server is active (detected or
-    /// forced in RynthCore Options > Diagnostics). The card left the Char section on 2026-10-13: that
-    /// section is Session Stats now, session stats only.
-    /// <paramref name="pages"/> (ServerPackPages, already validated) are the server's own views:
-    /// primary views of the same section, so each gets a sub-tab there, also only on that server.
+    /// The plugin's sections manifest (schema 1): its server, for RynthCore to detect, and the server's
+    /// own window on RynthCore's bar, named for the server ("Aelrynth", "Conquest"), only while that
+    /// server is active (detected or forced in RynthCore Options > Diagnostics). The window holds
+    /// everything the server has: the card first, then <paramref name="pages"/> as tabs
+    /// (ServerPackUi.RenderTabs). Tom, 2026-10-24: every server its own spot on the bar, where everything
+    /// is easy to find, not mixed in with the rest; until then the card and pages were sub-tabs of a
+    /// shared "Server" section of the Mini Remote.
     /// </summary>
     public static string BuildSectionsJson(ServerPackInfo info, string pluginName, IReadOnlyList<ServerPage>? pages = null)
     {
@@ -175,32 +177,22 @@ internal sealed class ServerPackModel
         AppendList(sb, info.WorldNames);
         sb.Append("],\"hosts\":[");
         AppendList(sb, info.Hosts);
-        sb.Append("]}],\"sections\":[{\"id\":").Append(Q(SectionId)).Append(",\"label\":").Append(Q(SectionLabel));
-        sb.Append(",\"order\":").Append(SectionOrder).Append("}],\"contributions\":[{\"section\":").Append(Q(SectionId));
-        sb.Append(",\"server\":").Append(Q(info.Id));
-        sb.Append(",\"label\":").Append(Q(info.Name + " server (" + pluginName + ")"));
-        sb.Append(",\"surface\":").Append(Q(SurfaceFor(info.Id)));
-        sb.Append(",\"primary\":false,\"height\":320,\"enabled\":true,\"tooltip\":");
-        sb.Append(Q("What is known about " + info.Name + ": rules, account limits, botting policy, links and setup ("
-                    + pluginName + "; also /rserver)."));
-        sb.Append(",\"order\":130}");
-        if (pages != null)
-        {
-            for (int i = 0; i < pages.Count; i++)
-            {
-                ServerPage p = pages[i];
-                sb.Append(",{\"section\":").Append(Q(SectionId));
-                sb.Append(",\"server\":").Append(Q(info.Id));
-                sb.Append(",\"label\":").Append(Q(p.Label));
-                sb.Append(",\"surface\":").Append(Q(ServerPackPages.SurfaceFor(info.Id, p.Id)));
-                sb.Append(",\"primary\":true,\"width\":").Append(ServerPackPages.Width).Append(",\"height\":").Append(ServerPackPages.Height);
-                sb.Append(",\"enabled\":true,\"tooltip\":").Append(Q(p.Tooltip.Length > 0 ? p.Tooltip : p.Label + " (" + pluginName + ")"));
-                sb.Append(",\"order\":").Append(100 + i).Append('}');
-            }
-        }
-        sb.Append("]}");
+        bool tabs = pages != null && pages.Count > 0;
+        sb.Append("]}],\"windows\":[{\"id\":").Append(Q(WindowId));
+        sb.Append(",\"title\":").Append(Q(WindowTitle(info)));
+        sb.Append(",\"surface\":").Append(Q(WindowSurface));
+        sb.Append(",\"icon\":").Append(Q(WindowIcon));
+        sb.Append(",\"width\":").Append(tabs ? ServerPackPages.Width : 460).Append(",\"height\":").Append(ServerPackPages.Height);
+        sb.Append(",\"minWidth\":320,\"minHeight\":200,\"bar\":true,\"server\":").Append(Q(info.Id));
+        sb.Append("}]}");
         return sb.ToString();
     }
+
+    /// <summary>
+    /// The window's title, which is also its panel key (saved place, /rc commands, the bar button's
+    /// tooltip): the server's name, so each server is its own spot.
+    /// </summary>
+    public static string WindowTitle(ServerPackInfo info) => info.Name.Trim().Length > 0 ? info.Name.Trim() : info.Id;
 
     private static void AppendList(StringBuilder sb, string[] values)
     {

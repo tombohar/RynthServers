@@ -208,9 +208,9 @@ internal static class ConquestTests
         ServerPackInfo info = new("conquest", "Conquest", new[] { "acconquest.ddns.net" }, new[] { "Conquest", "ConquestAC" });
         SectionManifest m = SectionManifestParser.Parse("RynthConquest", ServerPackModel.BuildSectionsJson(info, "RynthConquest", pages), out string error);
         Check.Eq(error, "", "RynthCore parses the manifest");
-        SectionContribution[] views = m.Contributions.Where(c => c.Primary).ToArray();
-        Check.Eq(views.Length, 2, "two pages in the Mini Remote");
-        Check.True(views.All(c => c.Server == "conquest"), "shown only while Conquest is active");
-        Check.True(views.Select(c => c.Surface).SequenceEqual(new[] { "section:server-conquest.main", "section:server-conquest.boards" }), "their surfaces");
+        SectionWindowDecl window = m.Windows.Single();
+        Check.True(window.Title == "Conquest" && window.Bar && window.Server == "conquest",
+                   "the Conquest window on the bar (Conquest and Leaderboards are tabs in it), only while Conquest is active");
+        Check.Eq(m.Contributions.Length, 0, "nothing in the Mini Remote");
     }
 }

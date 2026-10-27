@@ -81,24 +81,16 @@ internal static class ServerPackHooksTests
         string json = ServerPackModel.BuildSectionsJson(info, "RynthConquest", pages);
         SectionManifest m = SectionManifestParser.Parse("RynthConquest", json, out string error);
         Check.Eq(error, "", "RynthCore parses it");
-        Check.Eq(m.Contributions.Length, 3, "the card and two pages");
-        SectionContribution card = m.Contributions.Single(c => !c.Primary);
-        Check.Eq(card.Surface, "section:server-conquest", "the card keeps its surface");
-        SectionContribution[] views = m.Contributions.Where(c => c.Primary).ToArray();
-        Check.True(views.All(c => c.Section == ServerPackModel.SectionId && c.Server == "conquest" && c.IsSurface),
-                   "pages: primary views of the Server section, only on Conquest");
-        Check.Eq(views[0].Surface, "section:server-conquest.main", "page surface");
-        Check.Eq(views[0].Label, "Conquest", "page label");
-        Check.Eq(views[0].Tooltip, "Bank, augs and more", "page tooltip");
-        Check.Eq(views[1].Tooltip, "Leaderboards (RynthConquest)", "a default tooltip");
-        Check.True(views[0].Order < views[1].Order, "pages keep their order");
-        Check.True(views[0].Width > 0 && views[0].Height > 0, "pages say their size");
+        // Tom 10-24: the card and the pages are one window on RynthCore's bar (pages are its tabs), not Mini Remote sub-tabs.
+        Check.Eq(m.Contributions.Length, 0, "nothing in the Mini Remote");
+        SectionWindowDecl window = m.Windows.Single();
+        Check.True(window.Title == "Conquest" && window.Bar && window.Server == "conquest" && window.Surface == ServerPackModel.WindowSurface,
+                   "one window named for the server, with a bar button, only on Conquest");
+        Check.True(window.Icon == ServerPackModel.WindowIcon && window.Width >= ServerPackPages.Width && window.Height > 0, "its icon and a size that fits the tabs");
 
-        // Without pages the manifest is byte for byte what it was.
-        Check.Eq(ServerPackModel.BuildSectionsJson(info, "RynthConquest", null), ServerPackModel.BuildSectionsJson(info, "RynthConquest"),
-                 "no pages: the old manifest");
-        Check.Eq(SectionManifestParser.Parse("x", ServerPackModel.BuildSectionsJson(info, "RynthConquest"), out _).Contributions.Length, 1,
-                 "no pages: only the card");
+        // Without pages: the same window, narrower (the card alone).
+        SectionWindowDecl alone = SectionManifestParser.Parse("x", ServerPackModel.BuildSectionsJson(info, "RynthConquest"), out _).Windows.Single();
+        Check.True(alone.Title == "Conquest" && alone.Width < window.Width, "no pages: the card's window");
     }
 
     private static void SettingsRoundTrip()

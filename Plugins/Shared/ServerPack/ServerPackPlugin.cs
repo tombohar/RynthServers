@@ -47,6 +47,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using ImGuiNET;
 using RynthCore.PluginCore;
+using RynthCore.PluginSdk;
 
 namespace RynthCore.Plugin.ServerPack;
 
@@ -270,6 +271,28 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
     internal bool RenderEmbeddedCard(out float wantHeight) => RenderEmbedded(_ui.RenderBody, "Server card", out wantHeight);
 
     /// <summary>
+    /// RynthPluginRenderEmbed "window:server": the server's window on RynthCore's bar, the card and the
+    /// server's pages as tabs. Render thread.
+    /// </summary>
+    internal bool RenderEmbeddedWindow(out float wantHeight) => RenderEmbedded(_ui.RenderTabs, "Server window", out wantHeight);
+
+    /// <summary>
+    /// /rserver show|hide|toggle: the server's window on RynthCore's bar when the engine hosts it (plugin
+    /// windows, v89), else the standalone window this plugin draws itself (older engines).
+    /// </summary>
+    private void SetWindow(RynthPanelOpen mode)
+    {
+        string title = ServerPackModel.WindowTitle(Info);
+        if (Host.HasSetPanelOpen && Host.SetPanelOpen(title, RynthPanelOpen.Ask) >= 0)
+        {
+            _ui.WindowOpen = false;
+            Host.SetPanelOpen(title, mode);
+            return;
+        }
+        _ui.WindowOpen = mode switch { RynthPanelOpen.Open => true, RynthPanelOpen.Close => false, _ => !_ui.WindowOpen };
+    }
+
+    /// <summary>
     /// RynthPluginRenderEmbed "section:server-&lt;id&gt;.&lt;page&gt;": one of the server's pages
     /// (ServerPages) in RynthCore's Mini Remote. False for a page this plugin doesn't have, or before login.
     /// </summary>
@@ -354,13 +377,13 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         switch (verb)
         {
             case "show":
-                _ui.WindowOpen = true;
+                SetWindow(RynthPanelOpen.Open);
                 return;
             case "hide":
-                _ui.WindowOpen = false;
+                SetWindow(RynthPanelOpen.Close);
                 return;
             case "toggle":
-                _ui.WindowOpen = !_ui.WindowOpen;
+                SetWindow(RynthPanelOpen.Toggle);
                 return;
             case "auto":
             case "on":

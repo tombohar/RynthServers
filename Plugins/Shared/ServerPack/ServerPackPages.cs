@@ -2,13 +2,11 @@
 // Leaderboards pages, RynthAelrynth's Leaderboards, ...).
 //
 // A server's own features need somewhere to show. The ServerPackPlugin.ServerPages hook lists them
-// once, at construction; the shared code then
-//   * declares each one in the sections manifest as a primary view of the shared "Server" section,
-//     shown only while this plugin's server is active (contribution "server": <id>), so RynthCore's
-//     Mini Remote gives it a sub-tab next to the server card;
-//   * draws it through RynthPluginRenderEmbed under the surface "section:server-<id>.<page>"
-//     (":popout" added in a popped-out window), into the engine's current window and context;
-//   * shows the same pages as tabs of the standalone "/rserver" window, after the card.
+// once, at construction; the shared code then shows them as tabs after the card in the server's own
+// window on RynthCore's bar (named for the server, only while it is active: ServerPackModel's
+// "windows", 2026-10-24), and in the standalone "/rserver" window on engines without plugin windows.
+// Until 2026-10-24 each was also a sub-tab of the Mini Remote's shared "Server" section, drawn under
+// the surface "section:server-<id>.<page>" (RynthPluginRenderEmbed still answers it).
 // Draw runs on the render thread: a page reads its state under its own lock and queues anything it
 // sends for the plugin tick (ServerPackPlugin.RunOnTick).
 // Pure (no ImGui, no host calls): RynthServerPack.Tests covers it.

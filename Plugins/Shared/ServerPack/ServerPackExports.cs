@@ -99,7 +99,9 @@ public static unsafe class ServerPackExports
     }
 
     /// <summary>
-    /// RynthCore's Mini Remote sections: "section:server-&lt;id&gt;" (":popout" added in a popped-out
+    /// "window:server" (":popout" added popped out): the server's window on RynthCore's bar, everything
+    /// the server has (ServerPackModel.BuildSectionsJson's "windows").
+    /// RynthCore's Mini Remote sections (no longer declared): "section:server-&lt;id&gt;" (":popout" added in a popped-out
     /// window) draws the server card into the engine's current window, "section:server-&lt;id&gt;.&lt;page&gt;"
     /// one of the server's own pages (ServerPackPages). 1 = drawn, 0 = not ready or not ours.
     /// </summary>
@@ -114,7 +116,11 @@ public static unsafe class ServerPackExports
             var plugin = Runtime.Plugin;
             if (plugin == null) return 0;
             float wantH;
-            if (name.Equals(ServerPackPlugin.SettingsSurface, StringComparison.Ordinal))
+            if (name.Equals(ServerPackModel.WindowSurface, StringComparison.Ordinal))
+            {
+                if (!plugin.RenderEmbeddedWindow(out wantH)) return 0;
+            }
+            else if (name.Equals(ServerPackPlugin.SettingsSurface, StringComparison.Ordinal))
             {
                 if (!plugin.RenderEmbeddedCard(out wantH)) return 0;
             }

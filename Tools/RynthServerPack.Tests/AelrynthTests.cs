@@ -113,9 +113,10 @@ internal static class AelrynthTests
         ServerPackInfo info = new("aelrynth", "Aelrynth", new[] { "aelrynth.com" }, new[] { "Aelrynth*", "Aeshnidae*" });
         SectionManifest m = SectionManifestParser.Parse("RynthAelrynth", ServerPackModel.BuildSectionsJson(info, "RynthAelrynth", pages), out string error);
         Check.Eq(error, "", "RynthCore parses the manifest");
-        SectionContribution view = m.Contributions.Single(c => c.Primary);
-        Check.True(view.Server == "aelrynth" && view.Label == "Leaderboards" && view.Surface == "section:server-aelrynth.boards",
-                   "Leaderboards, only while Aelrynth is active");
+        SectionWindowDecl window = m.Windows.Single();
+        Check.True(window.Title == "Aelrynth" && window.Bar && window.Server == "aelrynth" && window.Surface == "window:server",
+                   "the Aelrynth window on the bar (its Leaderboards a tab in it), only while Aelrynth is active");
+        Check.Eq(m.Contributions.Length, 0, "nothing in the Mini Remote");
     }
 
     /// <summary>
