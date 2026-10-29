@@ -97,6 +97,8 @@
     <!-- Save failures (its own files and the copies migrated from RynthAi) said in chat with the
          reason and the fix, as RynthAi's are. -->
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\DataWriteGuard.cs" Link="Shared\DataWriteGuard.cs" />
+    <!-- How a chat command answers (2026-10-28): the shared reply queue and colours. -->
+    <Compile Include="$(RynthSuiteRoot)Plugins\Shared\CommandReply.cs" Link="Shared\CommandReply.cs" />
     <!-- T11 (ACECustom tier 11+ gear): the "/aug" reader, the counters and the item text parser (Hub/IltT11.cs,
          "/ilt t11"). RynthAi keeps the loot keys and evaluator; RynthILT reports the counters to it. -->
     <Compile Include="$(RynthSuiteRoot)Shared\RynthCore.LootSdk\T11\T11Catalog.cs" Link="Shared\T11\T11Catalog.cs" />

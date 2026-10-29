@@ -214,6 +214,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
     public override void OnTick()
     {
         try { RynthLog.Pump(); } catch { }
+        Reply.Flush();
         if (!_loginComplete) return;
         _ai?.Tick();
         PollServerState(force: false);
@@ -751,7 +752,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
         if (!fromRa && (verb == "bounty" || verb == "bounties" || verb == "bountys"))
         {
             // "/ilt bounty [list|refresh]": the tracker's own chat commands ("/ra bounty" opens the window).
-            if (_bounties == null) ChatLine("[RynthILT] Bounties not ready (not logged in yet).");
+            if (_bounties == null) ChatFail("[RynthILT] Bounties not ready (not logged in yet).");
             else _bounties.HandleChatCommand(parts);
             return;
         }
@@ -778,15 +779,16 @@ public sealed class RynthILTPlugin : RynthPluginBase
                 // ub-IT's "/ub qblist" and "/ub augs" (RynthAi passes them on): ACECustom's own commands.
                 string sub = args.Length > 0 ? args[0].ToLowerInvariant() : string.Empty;
                 string? server = sub == "qblist" ? "/qb list" : sub == "augs" ? "/aug" : null;
-                if (server == null) { ChatLine("[RynthILT] /ub qblist or /ub augs"); return; }
-                if (_hub?.Options.IsIltLikeWorld != true) { ChatLine($"[RynthILT] /ub {sub}: not an Infinite Leaftide world."); return; }
-                if (!Host.HasInvokeChatParser || !Host.InvokeChatParser(server)) ChatLine("[RynthILT] RynthCore didn't take: " + server);
+                if (server == null) { ChatFail("[RynthILT] /ub qblist or /ub augs"); return; }
+                if (_hub?.Options.IsIltLikeWorld != true) { ChatFail($"[RynthILT] /ub {sub}: not an Infinite Leaftide world."); return; }
+                if (!Host.HasInvokeChatParser || !Host.InvokeChatParser(server)) ChatFail("[RynthILT] RynthCore didn't take: " + server);
+                else ChatLine($"[RynthILT] /ub {sub}: sent {server}; the server's reply follows.");
                 return;
             }
             case "t11":
             {
                 // "/ilt t11 ..." and RynthAi's "/ra t11 ..." (T11 loot counters; IltT11).
-                if (_hub == null) { ChatLine("[RynthILT] ILT features not ready (log in first)."); return; }
+                if (_hub == null) { ChatFail("[RynthILT] ILT features not ready (log in first)."); return; }
                 _hub.T11.HandleCommand(args);
                 return;
             }
@@ -795,7 +797,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
             {
                 // "/ilt vaulted [on|off|toggle|status]": the Vaulted Dungeons keeper (ILT only; the
                 // module answers "not available" elsewhere, and while the master switch is off).
-                if (_hub == null) { ChatLine("[RynthILT] ILT features not ready (log in first)."); return; }
+                if (_hub == null) { ChatFail("[RynthILT] ILT features not ready (log in first)."); return; }
                 _hub.VaultedDungeons.HandleCommand(args);
                 return;
             }
@@ -805,6 +807,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
                 // "/ilt settings [show|hide|toggle]": the ILT settings window.
                 string mode = args.Length >= 1 ? args[0].ToLowerInvariant() : "toggle";
                 _settingsUi.WindowOpen = mode switch { "show" or "on" => true, "hide" or "off" => false, _ => !_settingsUi.WindowOpen };
+                ChatLine(WindowReply("ILT settings", _settingsUi.WindowOpen));
                 return;
             }
             case "stamps":
@@ -816,6 +819,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
                 // "/ilt stamps [show|hide|toggle]": the Dynamic Stamps window (RynthOracle's "/ro dynamic" until 2026-10-21).
                 string mode = args.Length >= 1 ? args[0].ToLowerInvariant() : "toggle";
                 _stampsWindowOpen = IltSections.Resolve(mode, _stampsWindowOpen);
+                ChatLine(WindowReply("Dynamic Stamps", _stampsWindowOpen));
                 if (_stampsWindowOpen && _hub?.Options.IsIltLikeWorld == false)
                     ChatLine("[RynthILT] Dynamic Stamps are an Infinite Leaftide quest line; this world isn't treated as ILT.");
                 return;
@@ -827,6 +831,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
                 // RynthAi's Mini Remote shows the same tracker as Pets > Breeding).
                 string mode = args.Length >= 1 ? args[0].ToLowerInvariant() : "toggle";
                 _breedingWindowOpen = IltSections.Resolve(mode, _breedingWindowOpen);
+                ChatLine(WindowReply("Pet Breeding", _breedingWindowOpen));
                 return;
             }
             case "fellow":
@@ -836,6 +841,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
                 // "/ilt fellow [show|hide|toggle]": the ILT fellowship commands window.
                 string mode = args.Length >= 1 ? args[0].ToLowerInvariant() : "toggle";
                 _fellowshipUi.WindowOpen = mode switch { "show" or "on" => true, "hide" or "off" => false, _ => !_fellowshipUi.WindowOpen };
+                ChatLine(WindowReply("ILT fellowship", _fellowshipUi.WindowOpen));
                 return;
             }
             case "help":
@@ -856,16 +862,23 @@ public sealed class RynthILTPlugin : RynthPluginBase
         }
         if (_hub == null)
         {
-            ChatLine("[RynthILT] ILT features not ready (log in first).");
+            ChatFail("[RynthILT] ILT features not ready (log in first).");
             return;
         }
         try
         {
             if (!_hub.HandleCommand(verb, args))
-                ChatLine($"[RynthILT] Unknown command: {string.Join(" ", parts)}. /ilt help");
+                ChatFail($"[RynthILT] Unknown command: {string.Join(" ", parts)}. /ilt help");
         }
-        catch (Exception ex) { RynthLog.Exception(LogCat.IltHub, ex, "command"); }
+        catch (Exception ex)
+        {
+            RynthLog.Exception(LogCat.IltHub, ex, "command");
+            ChatFail($"[RynthILT] {string.Join(" ", parts)} failed: {ex.Message}");
+        }
     }
+
+    /// <summary>"/ilt settings|stamps|breeding|fellow [show|hide|toggle]": the window after it (every command answers, 2026-10-28).</summary>
+    internal static string WindowReply(string window, bool open) => $"[RynthILT] {window} window {(open ? "shown" : "hidden")}.";
 
     private static string[] Prepend(string first, string[] rest)
     {
@@ -893,7 +906,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
         }
         if (!RynthLog.TryParseCategory(target, out LogCat cat))
         {
-            ChatLine($"[RynthILT] Unknown trace category '{target}'. /ilt trace list");
+            ChatFail($"[RynthILT] Unknown trace category '{target}'. /ilt trace list");
             return;
         }
         RynthLog.SetTracing(cat, on);
@@ -907,7 +920,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
         if (words.Length == 0) return;
         if (words[0].Equals("prog", StringComparison.OrdinalIgnoreCase))
         {
-            if (_hub == null) { ChatLine("[RynthILT] ILT features not ready (log in first)."); return; }
+            if (_hub == null) { ChatFail("[RynthILT] ILT features not ready (log in first)."); return; }
             try { _hub.Progression.HandleRemote(words[1..]); }
             catch (Exception ex) { RynthLog.Exception(LogCat.IltProgression, ex, "prog command"); }
             return;
@@ -921,10 +934,16 @@ public sealed class RynthILTPlugin : RynthPluginBase
         if (_engineCommands.Count < 64) _engineCommands.Enqueue((action + " " + value).Trim());
     }
 
-    private void ChatLine(string text)
-    {
-        if (Host.HasWriteToChat) Host.WriteToChat(text, 1);
-    }
+    // RynthILT's chat lines (the Hub's too) go through RynthSuite's shared reply queue
+    // (Plugins/Shared/CommandReply.cs): the host drops a line within 100 ms of another plugin's, so the
+    // help's later lines used to go missing. Every line brings its own tag ("[RynthILT]", "[Mini Remote]").
+    private RynthCore.Plugin.Shared.CommandReply? _reply;
+    private RynthCore.Plugin.Shared.CommandReply Reply => _reply ??= IltHubContext.NewReply(Host);
+
+    private void ChatLine(string text) => Reply.Ok(text);
+
+    /// <summary>A command that didn't work: why, and the usage (the failure colour).</summary>
+    private void ChatFail(string text) => Reply.Fail(text);
 
     // ── The ILT Hub ──────────────────────────────────────────────────────────
 
@@ -970,7 +989,7 @@ public sealed class RynthILTPlugin : RynthPluginBase
         try
         {
             _hub = new IltHubController(Host, folder, _settings, _ai, () => _hubWritesBlocked,
-                                        pending ? IltMigration.FindLegacyCharFolder(world, charName) : null);
+                                        pending ? IltMigration.FindLegacyCharFolder(world, charName) : null, Reply);
             // Once per character: the RynthAi settings that moved here on 2026-10-20.
             var imported = IltMigration.ImportRynthAiSettings(_hub.State, world, charName);
             if (imported.Count > 0)

@@ -18,6 +18,7 @@ using System.Text;
 using RynthCore.Plugin.RynthThreads.Threads;
 using RynthCore.Plugin.RynthThreads.Ui;
 using RynthCore.Plugin.RynthThreads.Views;
+using RynthCore.Plugin.Shared;
 using RynthCore.PluginCore;
 
 namespace RynthCore.Plugin.RynthThreads;
@@ -50,10 +51,10 @@ public sealed class RynthThreadsPlugin : RynthPluginBase
     private long _nextPollMs;
     private string _world = string.Empty;
     private string _character = string.Empty;
-    private bool _noUiLogged;
 
     public override int Initialize()
     {
+        _ = Reply;
         _ui.Log = msg => Host.Log(msg);
         _panel = new ThreadsPanel
         {
@@ -127,6 +128,7 @@ public sealed class RynthThreadsPlugin : RynthPluginBase
     {
         long now = Environment.TickCount64;
         while (_commands.TryDequeue(out string? cmd)) RunCommand(cmd);
+        Reply.Flush();
         if (_inWorld && !_checked && now >= _nextIdentityTryMs) TryIdentify(now);
         if (!_active || _store == null) return;
 
@@ -224,7 +226,7 @@ public sealed class RynthThreadsPlugin : RynthPluginBase
         }
         catch (Exception ex)
         {
-            Print($"Export failed: {ex.Message}");
+            PrintFail($"Export failed: {ex.Message}");
         }
     }
 
@@ -232,39 +234,37 @@ public sealed class RynthThreadsPlugin : RynthPluginBase
 
     private void RunCommand(string arg)
     {
-        string word = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 } w ? w[0].ToLowerInvariant() : string.Empty;
-        if (word is "help" or "?")
+        // Every /rthreads answers in chat (2026-10-28, ThreadsCommands.cs).
+        ThreadsVerb verb = ThreadsCommands.Parse(arg, out string word);
+        if (verb == ThreadsVerb.Help)
         {
-            Print($"DreamWeave only: records Fragment Press results and shows the odds of each modifier per component. {Command} shows or hides the window; {Command} stats; {Command} export.");
+            Print(ThreadsCommands.Help);
             return;
         }
-        if (!_inWorld) { Print("Log in first."); return; }
-        if (!_checked) { Print("Still finding out which server this is; try again in a moment."); return; }
+        if (!_inWorld) { PrintFail("Log in first."); return; }
+        if (!_checked) { PrintFail("Still finding out which server this is; try again in a moment."); return; }
         if (!_active)
         {
-            Print($"RynthThreads is for DreamWeave only (this is {_world}).");
+            PrintFail($"RynthThreads is for DreamWeave only (this is {_world}).");
             return;
         }
-        switch (word)
+        switch (verb)
         {
-            case "":
-                if (_window == null) return;
+            case ThreadsVerb.Window:
+                if (_window == null) { PrintFail("The Threads window isn't ready yet; try again in a moment."); return; }
                 _window.Visible = !_window.Visible;
                 _window.NeedsPass = true;
-                if (_window.Visible && !Host.HasUi && !_noUiLogged)
-                {
-                    _noUiLogged = true;
-                    Print($"This RynthCore engine can't show plugin windows (it needs script windows, API v71, with ImGui on). Presses are still recorded: {Command} stats.");
-                }
+                if (Host.HasUi) Print(ThreadsCommands.Window(_window.Visible));
+                else PrintFail(ThreadsCommands.NoWindows);
                 break;
-            case "stats":
+            case ThreadsVerb.Stats:
                 foreach (string line in StatsLines(CurrentReport(), _store!.FilePath)) Print(line);
                 break;
-            case "export":
+            case ThreadsVerb.Export:
                 Export();
                 break;
             default:
-                Print($"{Command} [stats | export | help]");
+                PrintFail(ThreadsCommands.Unknown(word));
                 break;
         }
     }
@@ -306,11 +306,15 @@ public sealed class RynthThreadsPlugin : RynthPluginBase
         return lines;
     }
 
-    private void Print(string text)
-    {
-        if (!Host.HasWriteToChat || !Host.WriteToChat("[RynthThreads] " + text, 1))
-            Host.Log("[RynthThreads] " + text);
-    }
+    // Chat lines wait in the shared reply queue (RynthSuite's Plugins/Shared/CommandReply.cs): the host
+    // drops a line within 100 ms of another plugin's, so /rthreads stats lost all but its first line.
+    private CommandReply? _reply;
+    private CommandReply Reply => _reply ??= new CommandReply("[RynthThreads]",
+        (t, c) => Host.HasWriteToChat && Host.WriteToChat(t, c), t => Host.Log(t));
+
+    private void Print(string text) => Reply.Ok(text);
+
+    private void PrintFail(string text) => Reply.Fail(text);
 
     /// <summary>A pass when one is wanted, or now and then while visible.</summary>
     private void Record(UiWindow w, long now)

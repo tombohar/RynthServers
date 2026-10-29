@@ -144,13 +144,17 @@ internal sealed class IltBanking : IIltFeature
 
     // ── Commands ────────────────────────────────────────────────────────────
 
-    /// <summary>Queues a /bank balance refresh (eaten when <paramref name="quiet"/>).</summary>
-    public void RequestRefresh(bool quiet)
+    /// <summary>
+    /// Queues a /bank balance refresh (eaten when <paramref name="quiet"/>). Null when it went out, else
+    /// why not (for "/ra hub bank" to say; the buttons ignore it).
+    /// </summary>
+    public string? RequestRefresh(bool quiet)
     {
         RynthLog.Trace(LogCat.IltBanking, $"RequestRefresh(quiet={quiet})");
-        if (_ctx.Capture.IsPending("/bank")) return;
+        if (_ctx.Capture.IsPending("/bank")) return "a /bank read is already waiting for the server's reply.";
         long now = IltHubContext.NowMs;
-        if (now - _lastBalanceAt < BalanceSpacingMs) return;
+        if (now - _lastBalanceAt < BalanceSpacingMs)
+            return $"the balance was read moments ago; try again in {Math.Max(1, (BalanceSpacingMs - (now - _lastBalanceAt) + 999) / 1000)}s.";
         _lastBalanceAt = now;
         _quietBalanceUntil = quiet ? now + QuietBalanceWindowMs : 0;
         _ctx.Capture.Enqueue(new IltChatRequest
@@ -166,6 +170,7 @@ internal sealed class IltBanking : IIltFeature
                 else if (r.Lines.Count > 0) _ctx.Options.Set(IltFeature.Bank, IltTri.On);
             },
         });
+        return null;
     }
 
     /// <summary>

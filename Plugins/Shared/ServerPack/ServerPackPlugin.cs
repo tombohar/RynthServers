@@ -46,6 +46,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using ImGuiNET;
+using RynthCore.Plugin.Shared;
 using RynthCore.PluginCore;
 using RynthCore.PluginSdk;
 
@@ -169,6 +170,7 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
 
     public override int Initialize()
     {
+        _ = Reply;
         Host.Log($"[{RynthPluginInfo.Name}] Plugin initialized for {Info.Name} ({Info.Id}).");
         // The server card draws through the engine's cimgui (and so in its current context, a popped-out
         // Mini Remote's included), never a second copy of ImGui (ImGuiNativeBinding.cs). Found and fixed
@@ -206,13 +208,14 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
 
     public override void OnTick()
     {
+        Reply.Flush();
         if (!_loginComplete) return;
         if (_world == null) RefreshWorld();
         while (_commands.TryDequeue(out string[]? parts)) RunCommand(parts);
         while (_engineCommands.TryDequeue(out string? command))
         {
             if (!Host.HasInvokeChatParser || !Host.InvokeChatParser(command))
-                ChatLine($"[{RynthPluginInfo.Name}] RynthCore didn't take: " + command);
+                ChatFail($"[{RynthPluginInfo.Name}] RynthCore didn't take: " + command);
         }
         while (_tickActions.TryDequeue(out Action? action))
         {
@@ -280,16 +283,17 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
     /// /rserver show|hide|toggle: the server's window on RynthCore's bar when the engine hosts it (plugin
     /// windows, v89), else the standalone window this plugin draws itself (older engines).
     /// </summary>
-    private void SetWindow(RynthPanelOpen mode)
+    /// <returns>Whether the window shows now.</returns>
+    private bool SetWindow(RynthPanelOpen mode)
     {
         string title = ServerPackModel.WindowTitle(Info);
         if (Host.HasSetPanelOpen && Host.SetPanelOpen(title, RynthPanelOpen.Ask) >= 0)
         {
             _ui.WindowOpen = false;
-            Host.SetPanelOpen(title, mode);
-            return;
+            return Host.SetPanelOpen(title, mode) == 1;
         }
         _ui.WindowOpen = mode switch { RynthPanelOpen.Open => true, RynthPanelOpen.Close => false, _ => !_ui.WindowOpen };
+        return _ui.WindowOpen;
     }
 
     /// <summary>
@@ -358,9 +362,7 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         _commands.Enqueue(parts);
     }
 
-    private bool IsVerb(string word) =>
-        word.ToLowerInvariant() is "show" or "hide" or "toggle" or "info" or "help" or "on" or "off" or "auto"
-        || _serverVerbs.Contains(word);
+    private bool IsVerb(string word) => ServerPackCommands.IsVerb(word, _serverVerbs);
 
     /// <summary>Drops the server id: "/rserver coldeve info" -> "/rserver info".</summary>
     private static string[] Shift(string[] parts)
@@ -373,24 +375,26 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
 
     private void RunCommand(string[] parts)
     {
-        string verb = parts.Length >= 2 ? parts[1].ToLowerInvariant() : "toggle";
+        // Every /rserver answers in chat (2026-10-28, ServerPackCommands.cs). The window verbs say its
+        // state; auto/on/off are answered by RynthCore's "/rc server" (or "RynthCore didn't take").
+        ServerVerb verb = ServerPackCommands.Verb(parts, _serverVerbs);
         switch (verb)
         {
-            case "show":
-                SetWindow(RynthPanelOpen.Open);
+            case ServerVerb.Show:
+                Reply.Ok(ServerPackCommands.Window(Info.Name, SetWindow(RynthPanelOpen.Open)));
                 return;
-            case "hide":
-                SetWindow(RynthPanelOpen.Close);
+            case ServerVerb.Hide:
+                Reply.Ok(ServerPackCommands.Window(Info.Name, SetWindow(RynthPanelOpen.Close)));
                 return;
-            case "toggle":
-                SetWindow(RynthPanelOpen.Toggle);
+            case ServerVerb.Toggle:
+                Reply.Ok(ServerPackCommands.Window(Info.Name, SetWindow(RynthPanelOpen.Toggle)));
                 return;
-            case "auto":
-            case "on":
-            case "off":
-                _engineCommands.Enqueue(ServerPackModel.ForceCommand(Info.Id, verb));
+            case ServerVerb.Auto:
+            case ServerVerb.On:
+            case ServerVerb.Off:
+                _engineCommands.Enqueue(ServerPackModel.ForceCommand(Info.Id, parts[1].ToLowerInvariant()));
                 return;
-            case "info":
+            case ServerVerb.Info:
                 PrintInfo();
                 return;
         }
@@ -398,8 +402,9 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         bool handled = false;
         ServerChatCommand(parts, ref handled);
         if (handled) return;
-        ChatLine($"[{RynthPluginInfo.Name}] {ChatCommand} [show|hide|toggle] - the {Info.Name} server card (also in the Mini Remote's Char section).");
-        ChatLine($"[{RynthPluginInfo.Name}] {ChatCommand} info - what is known about {Info.Name}; {ChatCommand} auto|on|off - this character's override.");
+        if (verb == ServerVerb.Unknown) Reply.Fail(ServerPackCommands.Unknown(parts[1]) + " " + ServerPackCommands.Usage(Info.Name)[0]);
+        else ChatLine(ServerPackCommands.Usage(Info.Name)[0]);
+        ChatLine(ServerPackCommands.Usage(Info.Name)[1]);
     }
 
     private void PrintInfo()
@@ -416,8 +421,15 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         ServerInfoLines(line => ChatLine(tag + line));
     }
 
-    internal void ChatLine(string text)
-    {
-        if (Host.HasWriteToChat) Host.WriteToChat(text, 1);
-    }
+    // Chat lines wait in the shared reply queue (RynthSuite's Plugins/Shared/CommandReply.cs): the host drops
+    // a line within 100 ms of another plugin's, so /rserver info's later lines used to go missing. A line
+    // with its own "[...]" tag keeps it; one without gets "[<plugin name>]".
+    private CommandReply? _reply;
+    internal CommandReply Reply => _reply ??= new CommandReply($"[{RynthPluginInfo.Name}]",
+        (t, c) => Host.HasWriteToChat && Host.WriteToChat(t, c), t => Host.Log(t));
+
+    internal void ChatLine(string text) => Reply.Ok(text);
+
+    /// <summary>A command that didn't work: why, and the usage (the failure colour).</summary>
+    internal void ChatFail(string text) => Reply.Fail(text);
 }

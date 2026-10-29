@@ -535,7 +535,8 @@ internal sealed class IltVaultedDungeons : IIltFeature
         {
             case "on":
             case "start":
-                SetActive(true);
+                if (_cfg.Active) _ctx.Chat("[Vaulted Dungeons] Already on.");
+                else SetActive(true);
                 return true;
             case "off":
             case "stop":

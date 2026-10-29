@@ -119,7 +119,7 @@ public sealed partial class ServerPackPlugin
         if (parts.Length < 2 || !parts[1].Equals("vault", StringComparison.OrdinalIgnoreCase)) return;
         handled = true;
         string tag = $"[{RynthPluginInfo.Name}] ";
-        if (!Active) { ChatLine(tag + "The account vault is Aelrynth's; RynthCore doesn't see this world as Aelrynth."); return; }
+        if (!Active) { ChatFail(tag + "The account vault is Aelrynth's; RynthCore doesn't see this world as Aelrynth."); return; }
         bool asked;
         string state;
         lock (_aelrynth.Gate)

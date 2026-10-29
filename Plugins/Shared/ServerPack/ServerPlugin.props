@@ -55,6 +55,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackUi.cs" Link="ServerPack\ServerPackUi.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackPlugin.cs" Link="ServerPack\ServerPackPlugin.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackExports.cs" Link="ServerPack\ServerPackExports.cs" />
+    <!-- "/rserver ..." words and answers, and the shared reply queue they go through (2026-10-28). -->
+    <Compile Include="$(MSBuildThisFileDirectory)ServerPackCommands.cs" Link="ServerPack\ServerPackCommands.cs" />
+    <Compile Include="$(RynthSuiteRoot)Plugins\Shared\CommandReply.cs" Link="Shared\CommandReply.cs" />
     <!-- "RynthServer.Profile": the server's settings for other plugins (RynthPluginQueryInterface). -->
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\RynthServerProfileApi.cs" Link="Shared\RynthServerProfileApi.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackProfile.cs" Link="ServerPack\ServerPackProfile.cs" />

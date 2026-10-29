@@ -31,6 +31,7 @@
   <ItemGroup>
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthThreads\**\*.cs" Exclude="..\..\Plugins\RynthCore.Plugin.RynthThreads\obj\**;..\..\Plugins\RynthCore.Plugin.RynthThreads\bin\**" Link="RynthThreads\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\..\..\RynthCore\src\RynthCore.Engine\UI\ScriptWindows\DisplayListParser.cs" Link="Engine\DisplayListParser.cs" />
+    <Compile Include="$(RynthSuiteRoot)Plugins\Shared\CommandReply.cs" Link="Shared\CommandReply.cs" />
     <!-- The RynthAi test tools' check/runner harness (no plugin code in it). -->
     <Compile Include="$(RynthSuiteRoot)Tools\RynthCore.RynthAiTests\Harness\Check.cs" Link="Harness\Check.cs" />
     <Compile Include="$(RynthSuiteRoot)Tools\RynthCore.RynthAiTests\Harness\Runner.cs" Link="Harness\Runner.cs" />

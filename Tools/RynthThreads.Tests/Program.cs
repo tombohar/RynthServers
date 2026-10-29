@@ -35,6 +35,7 @@ namespace RynthThreads.Tests
             InferenceTests.Register(runner);
             StoreTests.Register(runner);
             WindowTests.Register(runner);
+            ReplyTests.Register(runner);
             int rc = runner.Run("RynthThreads tests", args.Length > 0 ? args[0] : null);
             try { Directory.Delete(TempRoot, recursive: true); } catch { }
             return rc;

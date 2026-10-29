@@ -472,13 +472,16 @@ internal sealed class IltChunkClap : IIltFeature
                                   .Select(wo => ClapPartOf(inv.Wcid(wo), wo.Name, inv.Int(wo, IltInventory.IntItemMaxLevel))));
     }
 
-    /// <summary>Sends "/clap all" through the capture queue (reply stays visible).</summary>
-    public void ClapNow(bool manual)
+    /// <summary>
+    /// Sends "/clap all" through the capture queue (reply stays visible). Null when it went out, else
+    /// why not (for "/ra hub clap" to say; the button and the auto clap ignore it).
+    /// </summary>
+    public string? ClapNow(bool manual)
     {
         RynthLog.Trace(LogCat.IltGear, $"ClapNow(manual={manual})");
-        if (_ctx.Options.IsOff(IltFeature.Clap)) { _clapStatus = "/clap is not available (server or AutoCraftingEnabled stamp)"; return; }
-        if (_ctx.Capture.IsPending("/clap all")) return;
-        if (!manual && !HasClapMaterials()) { _clapStatus = "no aetheria and trinket pair carried (red + Empyrean, blue + Falatacot)"; return; }
+        if (_ctx.Options.IsOff(IltFeature.Clap)) { _clapStatus = "/clap is not available (server or AutoCraftingEnabled stamp)"; return _clapStatus + "."; }
+        if (_ctx.Capture.IsPending("/clap all")) return "one is already waiting for the server's reply.";
+        if (!manual && !HasClapMaterials()) { _clapStatus = "no aetheria and trinket pair carried (red + Empyrean, blue + Falatacot)"; return _clapStatus + "."; }
         _clapStatus = "sending /clap all...";
         _ctx.Capture.Enqueue(new IltChatRequest
         {
@@ -497,6 +500,7 @@ internal sealed class IltChunkClap : IIltFeature
                 if (r.Lines.Any(l => l.StartsWith("Deposited ", StringComparison.Ordinal))) _ctx.Options.Set(IltFeature.Clap, IltTri.On);
             },
         });
+        return null;
     }
 
     private void TickClap(long now)

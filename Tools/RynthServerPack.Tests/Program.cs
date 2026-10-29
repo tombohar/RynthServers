@@ -19,6 +19,7 @@ internal static class Program
         VaultTests.Register(runner);
         QuestPackTests.Register(runner);
         LevistrasTests.Register(runner);
+        ServerPackCommandsTests.Register(runner);
         return runner.Run("RynthServerPack tests", args.Length > 0 ? args[0] : null);
     }
 }

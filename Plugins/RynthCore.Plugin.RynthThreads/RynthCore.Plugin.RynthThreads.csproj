@@ -33,6 +33,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- How a chat command answers (2026-10-28): RynthSuite's shared reply queue and colours. -->
+    <Compile Include="$(RynthSuiteRoot)Plugins\Shared\CommandReply.cs" Link="Shared\CommandReply.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\RynthCore\src\RynthCore.PluginCore\RynthCore.PluginCore.csproj" />
     <ProjectReference Include="..\..\..\RynthCore\src\RynthCore.PluginSdk\RynthCore.PluginSdk.csproj" />
   </ItemGroup>

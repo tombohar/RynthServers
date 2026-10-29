@@ -123,7 +123,8 @@ internal sealed unsafe class RynthAiClient
         using var m = new Utf8(mode);
         int ok = t->MiniRemoteTab(id.P, m.P, reply, 256);
         string text = Marshal.PtrToStringUTF8((IntPtr)reply) ?? string.Empty;
-        return ok != 0 ? text : (text.Length > 0 ? text : "The Mini Remote is not available yet.");
+        // An empty reply from RynthAi still says what was done (every command answers, 2026-10-28).
+        return ok != 0 ? (text.Length > 0 ? text : $"Mini Remote: {mode} {tabId}.") : (text.Length > 0 ? text : "The Mini Remote is not available yet.");
     }
 
     /// <summary>True while the Mini Remote is on screen (any thread).</summary>

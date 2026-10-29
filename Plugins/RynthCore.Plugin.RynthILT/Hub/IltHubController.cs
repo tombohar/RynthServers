@@ -88,7 +88,8 @@ internal sealed class IltHubController
     /// <param name="writesBlocked">True while this character's copy from RynthAi is unfinished (IltHubStore.WritesBlocked).</param>
     /// <param name="legacyFolder">The character's RynthAi folder while that copy is unfinished (read-only fallback).</param>
     public IltHubController(RynthCoreHost host, string charFolder, IltSettings settings, RynthAiClient ai,
-                            Func<bool>? writesBlocked = null, string? legacyFolder = null)
+                            Func<bool>? writesBlocked = null, string? legacyFolder = null,
+                            RynthCore.Plugin.Shared.CommandReply? reply = null)
     {
         var store = new IltHubStore(host, charFolder);
         if (writesBlocked != null) store.WritesBlocked = writesBlocked;
@@ -98,7 +99,7 @@ internal sealed class IltHubController
         var inventory = new IltInventory(host, new IltObjects(host));
         IltHubContext? ctxRef = null;
         var options = new IltServerOptions(host, capture, state, text => ctxRef?.Chat(text), () => settings);
-        _ctx = new IltHubContext(host, state, store, capture, options, inventory, settings, ai);
+        _ctx = new IltHubContext(host, state, store, capture, options, inventory, settings, ai, reply);
         ctxRef = _ctx;
 
         Banking = new IltBanking(_ctx);
@@ -373,6 +374,7 @@ internal sealed class IltHubController
             _forceRequest = -1;
             _ctx.State.ForceLeaftideFeatures = force == 1;
         }
+        if (_ctx.OwnsReply) _ctx.Reply.Flush();
         _ctx.DrainPosted();
         _ctx.Capture.Tick();
         _ctx.Options.Tick();
@@ -594,6 +596,7 @@ internal sealed class IltHubController
         {
             // "rates reset": the coin / pyreal session starts over with RynthAi's session stats.
             Rates.Reset();
+            _ctx.Chat("[Mini Remote] ILT session rates reset: coins and pyreals count from now.");
             return true;
         }
         if (IsBountyVerb(verb))
@@ -634,7 +637,7 @@ internal sealed class IltHubController
                 {
                     // Quests and Pets are RynthAi's tabs: not ours to open.
                     if (args.Length >= 2 && IltSections.IsUniversalTabName(args[1])) return false;
-                    _ctx.Chat("[Mini Remote] Usage: /ra hub open pets|banking|gear|charms|games|vaulted|guardian|bounties [show|hide|toggle]  (character: /ro character, quests: /ro)");
+                    _ctx.ChatFail("[Mini Remote] Usage: /ra hub open pets|banking|gear|charms|games|vaulted|guardian|bounties [show|hide|toggle]  (character: /ro character, quests: /ro)");
                     break;
                 }
                 OpenSection(section, args.Length > 2 ? args[2] : "toggle");
@@ -649,7 +652,13 @@ internal sealed class IltHubController
                     return false;   // the Remote tab or a RynthAi tab: RynthAi's
                 break;
             case "refresh": _ctx.Options.Refresh(manual: true); break;
-            case "bank": Banking.RequestRefresh(quiet: false); break;
+            case "bank":
+            {
+                string? why = Banking.RequestRefresh(quiet: false);
+                if (why == null) _ctx.Chat("[Mini Remote] Reading the bank balance (/bank); the server's [BANK] lines follow.");
+                else _ctx.ChatFail("[Mini Remote] " + why);
+                break;
+            }
             // "/ilt qb": reads the /qb list again (the Quests tab's quest bonus section).
             case "qb": _ctx.Chat("[RynthILT] " + QuestBonus.RefreshQb()); break;
             case "status": PrintStatus(); break;
@@ -663,7 +672,13 @@ internal sealed class IltHubController
             case "servers": HandleServers(rest); break;
             case "profile": HandleProfile(args.Skip(1).ToArray()); break;
             case "suit": HandleSuit(args.Skip(1).ToArray()); break;
-            case "clap": Gear.ChunkClap.ClapNow(manual: true); break;
+            case "clap":
+            {
+                string? why = Gear.ChunkClap.ClapNow(manual: true);
+                if (why == null) _ctx.Chat("[Mini Remote] Sending /clap all; the server's reply follows.");
+                else _ctx.ChatFail("[Mini Remote] /clap all: " + why);
+                break;
+            }
             case "attr": HandleAttr(args.Skip(1).ToArray()); break;
             case "confirm": RunPending(); break;
             case "cancel":
@@ -705,7 +720,7 @@ internal sealed class IltHubController
             var list = arg.Equals("default", StringComparison.OrdinalIgnoreCase)
                 ? new List<string>(ServerFeatureGate.DefaultServerNames)
                 : ServerFeatureGate.ParseList(arg);
-            if (list.Count == 0) { _ctx.Chat("[Mini Remote] Usage: /ra hub servers <name, *pattern*, ...> | default | list"); return; }
+            if (list.Count == 0) { _ctx.ChatFail("[Mini Remote] Usage: /ra hub servers <name, *pattern*, ...> | default | list"); return; }
             _ctx.Settings.ServerNames = list;
             _ctx.SaveSettings();
         }
@@ -718,15 +733,57 @@ internal sealed class IltHubController
     {
         var raiser = Progression.Attributes;
         string sub = a.Length > 0 ? a[0].ToLowerInvariant() : "status";
+        const string usage = "[Mini Remote] Usage: /ra hub attr run|stop|costs|status|auto on|off|every <min>|raise <stat> <n>";
         switch (sub)
         {
-            case "run": raiser.HandleRemote("attrrun", new[] { "attrrun" }); break;
-            case "stop": raiser.HandleRemote("attrstop", new[] { "attrstop" }); break;
-            case "costs": raiser.HandleRemote("attrcosts", new[] { "attrcosts" }); break;
-            case "auto": raiser.HandleRemote("attrauto", new[] { "attrauto", a.Length > 1 ? a[1] : "off" }); break;
-            case "every": raiser.HandleRemote("attrevery", new[] { "attrevery", a.Length > 1 ? a[1] : "5" }); break;
-            case "raise" when a.Length > 2: raiser.HandleRemote("attrraise", new[] { "attrraise", a[1], a[2] }); break;
+            case "run":
+                raiser.HandleRemote("attrrun", new[] { "attrrun" });
+                _ctx.Chat("[Mini Remote] Attribute raiser: " + raiser.Status);
+                break;
+            case "stop":
+            {
+                bool was = raiser.Running;
+                raiser.HandleRemote("attrstop", new[] { "attrstop" });
+                _ctx.Chat(was ? "[Mini Remote] Attribute raiser: " + raiser.Status : "[Mini Remote] Attribute raiser: nothing was running.");
+                break;
+            }
+            case "costs":
+                raiser.HandleRemote("attrcosts", new[] { "attrcosts" });
+                _ctx.Chat(raiser.Running ? "[Mini Remote] Attribute raiser: a run is reading them already; " + raiser.Status
+                    : "[Mini Remote] Attribute raiser: " + (raiser.Blocker() ?? "reading the XP costs (/xp all)..."));
+                break;
+            case "auto":
+            {
+                // As before: any word but "on" (or none) turns it off; a word that isn't on/off says so.
+                string word = a.Length > 1 ? a[1] : "off";
+                raiser.HandleRemote("attrauto", new[] { "attrauto", word });
+                var ch = _ctx.State.Character;
+                string now = $"[Mini Remote] Attribute auto-raise {(ch.AttrAutoRaise ? $"on, every {ch.AttrAutoRaiseMinutes} min" : "off")}";
+                if (word.ToLowerInvariant() is "on" or "off") _ctx.Chat(now + ".");
+                else _ctx.ChatFail($"{now} ('{word}' isn't on). {usage}");
+                break;
+            }
+            case "every":
+            {
+                // As before: no number means 5 minutes; a word that isn't a number changes nothing.
+                string word = a.Length > 1 ? a[1] : "5";
+                raiser.HandleRemote("attrevery", new[] { "attrevery", word });
+                var ch = _ctx.State.Character;
+                string now = $"[Mini Remote] Attribute auto-raise every {ch.AttrAutoRaiseMinutes} min ({(ch.AttrAutoRaise ? "on" : "off; /ra hub attr auto on")})";
+                if (int.TryParse(word, out _)) _ctx.Chat(now + ".");
+                else _ctx.ChatFail($"{now}: '{word}' isn't a number of minutes. {usage}");
+                break;
+            }
+            case "raise" when a.Length > 2:
+                if (IltAttributeRaiser.Find(a[1]) == null || !int.TryParse(a[2], out int levels) || levels <= 0) { _ctx.ChatFail(usage); break; }
+                raiser.HandleRemote("attrraise", new[] { "attrraise", a[1], a[2] });
+                _ctx.Chat("[Mini Remote] Attribute raiser: " + raiser.Status);
+                break;
+            case "raise":
+                _ctx.ChatFail(usage);
+                break;
             default:
+                if (sub != "status") { _ctx.ChatFail(usage); return; }
                 var c = _ctx.State.Character;
                 string blocked = raiser.Blocker() ?? "ready";
                 _ctx.Chat($"[Mini Remote] Attribute raiser: {blocked}; auto={(c.AttrAutoRaise ? $"on every {c.AttrAutoRaiseMinutes}m" : "off")} "
@@ -752,6 +809,7 @@ internal sealed class IltHubController
         {
             // Character left the Mini Remote: open its new home instead.
             if (!mode.Equals("hide", StringComparison.OrdinalIgnoreCase)) OpenMoved(section, moved);
+            else _ctx.Chat($"[Mini Remote] {IltSections.Label(section)} isn't a Mini Remote tab any more: it is RynthOracle's ({moved}), nothing to hide here.");
             return;
         }
         if (!IltSections.IsTab(section))
@@ -798,8 +856,12 @@ internal sealed class IltHubController
             _ => "toggle",
         };
         if (_ctx.Host.HasInvokeChatParser && _ctx.Host.InvokeChatParser($"/rc {rcVerb} {m}"))
+        {
+            // RynthCore opens or closes it, and says why when it can't (not ILT, no ImGui).
+            _ctx.Chat($"[Mini Remote] {label} panel: asked RynthCore to {m} it (/rc {rcVerb} {m}).");
             return;
-        _ctx.Chat($"[Mini Remote] {label} is a RynthCore ILT panel: the bar's ILT button, or /rc {rcVerb}.");
+        }
+        _ctx.ChatFail($"[Mini Remote] {label} is a RynthCore ILT panel: the bar's ILT button, or /rc {rcVerb}.");
     }
 
     /// <summary>"show"/"on" → true, "hide"/"off" → false, anything else flips <paramref name="current"/>.</summary>
@@ -831,7 +893,7 @@ internal sealed class IltHubController
             _ctx.Chat("[Mini Remote] Profiles: " + (names.Count > 0 ? string.Join(", ", names) : "(none)"));
             return;
         }
-        if (a.Length < 2) { _ctx.Chat("[Mini Remote] Usage: /ra hub profile save <name> [shared] | load <name>"); return; }
+        if (a.Length < 2 || sub is not ("save" or "load")) { _ctx.ChatFail("[Mini Remote] Usage: /ra hub profile list | save <name> [shared] | load <name>"); return; }
         if (sub == "save")
         {
             bool shared = a.Length > 2 && a[2].Equals("shared", StringComparison.OrdinalIgnoreCase);
@@ -874,7 +936,7 @@ internal sealed class IltHubController
         string? label = _pendingLabel;
         bool fresh = action != null && IltHubContext.NowMs - _pendingAt <= ConfirmWindowMs;
         ClearPending();
-        if (!fresh || action == null) { _ctx.Chat("[Mini Remote] Nothing to confirm."); return; }
+        if (!fresh || action == null) { _ctx.ChatFail("[Mini Remote] Nothing to confirm."); return; }
 
         RynthLog.Event(LogEvents.IltConfirmation, $"confirmed: {label}");
         try { action(); }
@@ -906,7 +968,7 @@ internal sealed class IltHubController
                 RequestConfirm($"equip suit '{name ?? "(auto)"}'", () => _ctx.Chat("[Mini Remote] " + Gear.Suits.Load(name)));
                 break;
             default:
-                _ctx.Chat("[Mini Remote] Usage: /ra hub suit list|test [name]|load [name]");
+                _ctx.ChatFail("[Mini Remote] Usage: /ra hub suit list|test [name]|load [name]");
                 break;
         }
     }

@@ -108,6 +108,9 @@ internal sealed class IltAttributeRaiser
 
     public bool Running => _phase != Phase.Idle;
 
+    /// <summary>What the raiser is doing or why it can't (the Progression tab's status line; "/ra hub attr" says it).</summary>
+    public string Status => _status;
+
     // ── Order / selection helpers (also used by IltHubStore.Normalize) ─────────
 
     public static Stat? Find(string keyOrName)

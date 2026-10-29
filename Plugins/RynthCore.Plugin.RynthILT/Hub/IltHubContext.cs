@@ -9,6 +9,7 @@
 //     player first (the confirmed action is then posted).
 using System;
 using System.Collections.Concurrent;
+using RynthCore.Plugin.Shared;
 using RynthCore.PluginSdk;
 
 namespace RynthCore.Plugin.RynthILT.Hub;
@@ -29,9 +30,13 @@ internal sealed class IltHubContext
     private readonly ConcurrentQueue<IltConfirmRequest> _confirms = new();
 
     public IltHubContext(RynthCoreHost host, IltHubState state, IltHubStore store, IltChatCapture capture,
-                         IltServerOptions options, IltInventory inventory, IltSettings settings, RynthAiClient ai)
+                         IltServerOptions options, IltInventory inventory, IltSettings settings, RynthAiClient ai,
+                         CommandReply? reply = null)
     {
         Host = host;
+        // The plugin's queue (it writes the waiting lines on its tick); a Hub on its own (the tests) keeps one.
+        OwnsReply = reply == null;
+        Reply = reply ?? NewReply(host);
         State = state;
         Store = store;
         Capture = capture;
@@ -69,11 +74,26 @@ internal sealed class IltHubContext
     /// </summary>
     public Action<IltSection>? ShowTab;
 
+    /// <summary>
+    /// Where the Hub's chat lines go: RynthSuite's shared reply queue (Plugins/Shared/CommandReply.cs).
+    /// The host drops a line within 100 ms of another plugin's, so the second and later lines of an
+    /// answer (the help, /ra hub status) used to go missing; a refused line waits and is offered again.
+    /// No tag of its own: every Hub line brings its own ("[Mini Remote]", "[ILT Guardian]", ...).
+    /// </summary>
+    public CommandReply Reply { get; }
+
+    /// <summary>True when this Hub made <see cref="Reply"/> itself (no plugin around it): its tick flushes it.</summary>
+    public bool OwnsReply { get; }
+
+    /// <summary>A reply queue writing to <paramref name="host"/>'s chat (the plugin's, and a Hub's own).</summary>
+    public static CommandReply NewReply(RynthCoreHost host) =>
+        new(string.Empty, (t, c) => host.HasWriteToChat && host.WriteToChat(t, c), t => host.Log(t));
+
     /// <summary>Writes a local chat line (never sent to the server).</summary>
-    public void Chat(string text)
-    {
-        if (Host.HasWriteToChat) Host.WriteToChat(text, 1);
-    }
+    public void Chat(string text) => Reply.Ok(text);
+
+    /// <summary>A local chat line saying a command didn't work: why, and the usage (the failure colour).</summary>
+    public void ChatFail(string text) => Reply.Fail(text);
 
     /// <summary>Queues work for the next pump tick (safe from the render thread).</summary>
     public void Post(Action action) => _posted.Enqueue(action);

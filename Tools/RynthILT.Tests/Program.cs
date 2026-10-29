@@ -53,6 +53,7 @@ internal static class Program
         RingEvadeTests.Register(runner);
         VaultedSwitchTests.Register(runner);
         T11Tests.Register(runner);
+        ReplyTests.Register(runner);
         RemoteTabTests.Register(runner);
         StampTests.Register(runner);
         BankRosterTests.Register(runner);

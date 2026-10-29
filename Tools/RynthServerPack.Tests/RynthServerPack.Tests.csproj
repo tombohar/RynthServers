@@ -29,6 +29,9 @@
     <Compile Include="..\..\Plugins\Shared\ServerPack\ServerPackPages.cs" Link="Plugin\ServerPackPages.cs" />
     <Compile Include="..\..\Plugins\Shared\ServerPack\ServerPackSettings.cs" Link="Plugin\ServerPackSettings.cs" />
     <Compile Include="..\..\Plugins\Shared\ServerPack\ServerChatRequest.cs" Link="Plugin\ServerChatRequest.cs" />
+    <!-- "/rserver" words and answers (2026-10-28) and the shared reply queue. -->
+    <Compile Include="..\..\Plugins\Shared\ServerPack\ServerPackCommands.cs" Link="Plugin\ServerPackCommands.cs" />
+    <Compile Include="$(RynthSuiteRoot)Plugins\Shared\CommandReply.cs" Link="Shared\CommandReply.cs" />
     <!-- RynthConquest's own features (pure parts) and the RynthOracle sources it links. -->
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthConquest\Conquest\ConquestData.cs" Link="Conquest\ConquestData.cs" />
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthConquest\Conquest\ConquestFeature.cs" Link="Conquest\ConquestFeature.cs" />
