@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RynthCore.Plugin.ServerPack;
 using RynthCore.Plugin.Shared;
 using RynthCore.RynthAiTests.Harness;
@@ -50,6 +51,31 @@ internal static class ServerPackCommandsTests
         Check.Eq(usage.Length, 2, "two usage lines");
         Check.True(usage[0].Contains("/rserver [show|hide|toggle]") && usage[1].Contains("/rserver auto|on|off"), "the usage names every verb");
         Check.Eq(ServerPackCommands.Unknown("wobble"), "Unknown '/rserver wobble'.", "an unknown word");
+
+        // A server without ServerUsageLines (Coldeve) prints exactly the two shared lines, byte for byte.
+        string[] pinned =
+        {
+            "/rserver [show|hide|toggle] - the Coldeve server card (also in the Mini Remote's Char section).",
+            "/rserver info - what is known about Coldeve; /rserver auto|on|off - this character's override.",
+        };
+        Check.Eq(string.Join("\n", usage), string.Join("\n", pinned), "hookless usage is unchanged");
+        Check.Eq(string.Join("\n", ServerPackCommands.Usage("Coldeve", new List<string>())), string.Join("\n", pinned), "no own lines: unchanged");
+        Check.Eq(string.Join("\n", ServerPackCommands.Usage("Coldeve", new List<string> { "", "  " })), string.Join("\n", pinned), "blank own lines are dropped");
+        string coldeve = string.Join("\n", System.IO.Directory.GetFiles(System.IO.Path.Combine(ServerProjectsTests.PluginsDir(), "RynthCore.Plugin.RynthColdeve"), "*.cs", System.IO.SearchOption.AllDirectories)
+            .Where(f => !f.Contains("\\obj\\") && !f.Contains("\\bin\\")).Select(System.IO.File.ReadAllText));
+        Check.False(coldeve.Contains("ServerUsageLines", StringComparison.Ordinal), "Coldeve has no ServerUsageLines (so the pin above is what it prints)");
+
+        // A server's own lines follow the shared two, which stay first and unchanged.
+        string[] own = ServerPackCommands.Usage("Coldeve", new List<string> { "  /rserver x - one more line  " });
+        Check.Eq(own.Length, 3, "an own line is appended");
+        Check.Eq(own[2], "/rserver x - one more line", "trimmed");
+        Check.True(own[0] == pinned[0] && own[1] == pinned[1], "the shared two come first, unchanged");
+
+        // DreamWeave's verbs follow the shared two.
+        string[] dw = ServerPackCommands.Usage("DreamWeave", new List<string> { RynthCore.Plugin.RynthDreamWeave.DreamWeaveWeb.UsageLine() });
+        Check.Eq(dw.Length, 3, "DreamWeave: three usage lines");
+        Check.Eq(dw[2], "/rserver abilities | market | suit - open the website's Class Abilities, Market or Suit Builder, logged in as this account.", "DreamWeave's own line");
+        Check.True(dw[0] == ServerPackCommands.Usage("DreamWeave")[0] && dw[1] == ServerPackCommands.Usage("DreamWeave")[1], "the shared two come first, unchanged");
     }
 
     private static void Queue()

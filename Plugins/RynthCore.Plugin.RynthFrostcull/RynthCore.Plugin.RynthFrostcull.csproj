@@ -9,7 +9,7 @@
     <RynthPluginServerName>Frostcull</RynthPluginServerName>
     <RynthPluginServerHosts>frostcull.ddns.net</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Frostcull</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Frostcull only: the server card (rules, account limits, botting policy, links, account setup) in the Mini Remote.</RynthPluginDescription>
+    <RynthPluginDescription>Frostcull only: the server card (rules, account limits, botting policy, links, account setup) in its own window on the RynthCore bar.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

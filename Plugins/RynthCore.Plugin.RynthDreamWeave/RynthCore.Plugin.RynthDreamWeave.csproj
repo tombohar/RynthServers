@@ -1,16 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- RynthDreamWeave: the DreamWeave server plugin. The build is shared (..\Shared\ServerPack\ServerPlugin.props);
-       ServerData.cs holds what is known about the server. -->
+       ServerData.cs holds what is known about the server. Its own feature (DreamWeavePlugin.cs, DreamWeave\,
+       2026-11-02): the bank check every minute that gives Lum/hr its luminance there, and its Bank page. -->
   <PropertyGroup>
     <AssemblyName>RynthCore.Plugin.RynthDreamWeave</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <RynthPluginServerId>dreamweave</RynthPluginServerId>
     <RynthPluginServerName>DreamWeave</RynthPluginServerName>
     <RynthPluginServerHosts>play.acdreamweave.com</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>DreamWeave|Dream Weave</RynthPluginServerWorldNames>
-    <RynthPluginDescription>DreamWeave only: the server card (rules, server features, player commands, links, account setup) in the Mini Remote.</RynthPluginDescription>
+    <RynthPluginDescription>DreamWeave only: the server card (rules, server features, player commands, links, account setup) in its own window on the RynthCore bar, the retail Character panel whose XP for next level keeps reading past level 275, and the bank check every minute that gives Lum/hr its luminance. Class Abilities, Market and Suit Builder open the website logged in as this account: from buttons on the card, or from the bar icon's dropdown.</RynthPluginDescription>
+    <!-- Declared 90, not the 66 default: a release build raises anything under 88 to the SDK's API, so the plugin would load on no current engine.
+         90 is the highest API among the SDK members called outside an isolated NoInlining method: RynthAcPanel (a static field's type),
+         IsAcPanelOpen, AcPanel, PanelScale, PanelDragWithLastItem, GetIconTexture and HasFramelessWindows (v90). Anything newer must stay
+         in a NoInlining method behind its Has* check, as the web panel's (v94) calls do; the bar menu only compares Host.Version. -->
+    <RynthPluginMinEngineApi>90</RynthPluginMinEngineApi>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- LaunchWire tells a server line from a player's copy of it. -->
+    <Compile Include="$(RynthSuiteRoot)Plugins\Shared\ChatSource.cs" Link="Shared\ChatSource.cs" />
+  </ItemGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />
 

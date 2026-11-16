@@ -32,6 +32,15 @@
     <!-- "/rserver" words and answers (2026-10-28) and the shared reply queue. -->
     <Compile Include="..\..\Plugins\Shared\ServerPack\ServerPackCommands.cs" Link="Plugin\ServerPackCommands.cs" />
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\CommandReply.cs" Link="Shared\CommandReply.cs" />
+    <!-- The web opener's pure rules (allowlist, route). -->
+    <Compile Include="..\..\Plugins\Shared\ServerPack\ServerWebOpen.cs" Link="Plugin\ServerWebOpen.cs" />
+    <!-- The engine web panel's answers and the one open the tick waits on (pure: the engine is a seam). -->
+    <Compile Include="..\..\Plugins\Shared\ServerPack\ServerWebPanel.cs" Link="Plugin\ServerWebPanel.cs" />
+    <!-- DreamWeave's web destinations and the launch reply's wire text (pure). -->
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\DreamWeaveWeb.cs" Link="DreamWeave\DreamWeaveWeb.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\LaunchWire.cs" Link="DreamWeave\LaunchWire.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\WebLauncher.cs" Link="DreamWeave\WebLauncher.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\WebProfile.cs" Link="DreamWeave\WebProfile.cs" />
     <!-- RynthConquest's own features (pure parts) and the RynthOracle sources it links. -->
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthConquest\Conquest\ConquestData.cs" Link="Conquest\ConquestData.cs" />
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthConquest\Conquest\ConquestFeature.cs" Link="Conquest\ConquestFeature.cs" />
@@ -44,6 +53,8 @@
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthAelrynth\Aelrynth\AelrynthBoards.cs" Link="Aelrynth\AelrynthBoards.cs" />
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthAelrynth\Aelrynth\AelrynthFeature.cs" Link="Aelrynth\AelrynthFeature.cs" />
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthAelrynth\Aelrynth\VaultFeed.cs" Link="Aelrynth\VaultFeed.cs" />
+    <!-- RynthDreamWeave's bank check for Lum/hr (pure part). -->
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\DreamWeaveBank.cs" Link="DreamWeave\DreamWeaveBank.cs" />
     <!-- The difficulty tier RynthAelrynth publishes for RynthAi (and the value names, RynthServerProfileApi.cs). -->
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthAelrynth\Aelrynth\AelrynthDifficulty.cs" Link="Aelrynth\AelrynthDifficulty.cs" />
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\RynthServerProfileApi.cs" Link="Shared\RynthServerProfileApi.cs" />
@@ -51,6 +62,8 @@
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\StorageFeed.cs" Link="Shared\StorageFeed.cs" />
     <!-- RynthCore's own sections-manifest parser (pure), so the manifest is checked the way the engine reads it. -->
     <Compile Include="..\..\..\RynthCore\src\RynthCore.Engine\UI\Sections\SectionManifest.cs" Link="Engine\SectionManifest.cs" />
+    <!-- The engine's API numbers (pure const file): the plugin's own copy of the barMenu version is pinned to it. -->
+    <Compile Include="..\..\..\RynthCore\src\RynthCore.Engine\Plugins\PluginContractVersion.cs" Link="Engine\PluginContractVersion.cs" />
     <!-- "RynthServer.Profile": the profile JSON, and the shared reader's parser that consumes it. -->
     <Compile Include="..\..\Plugins\Shared\ServerPack\ServerPackProfile.cs" Link="Plugin\ServerPackProfile.cs" />
     <!-- "RynthServer.QuestPack": a server plugin's own quest list (the info JSON; the pack itself is data). -->
@@ -62,6 +75,15 @@
     <!-- The launcher's known-server picker, checked against the plugins it names. -->
     <Compile Include="..\..\..\RynthCore\src\RynthCore.App\LaunchServerProfile.cs" Link="Launcher\LaunchServerProfile.cs" />
     <Compile Include="..\..\..\RynthCore\src\RynthCore.App\KnownServerCatalog.cs" Link="Launcher\KnownServerCatalog.cs" />
+    <!-- Windows of a server plugin's own (2026-11-07) and RynthDreamWeave's Skills panel (pure parts). -->
+    <Compile Include="..\..\Plugins\Shared\ServerPack\ServerPackWindows.cs" Link="Plugin\ServerPackWindows.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\RetailData.cs" Link="DreamWeave\RetailData.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\RetailData.g.cs" Link="DreamWeave\RetailData.g.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\DreamWeaveXp.cs" Link="DreamWeave\DreamWeaveXp.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\SkillsSheet.cs" Link="DreamWeave\SkillsSheet.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\AttributesTitles.cs" Link="DreamWeave\AttributesTitles.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\OnePanelRule.cs" Link="DreamWeave\OnePanelRule.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\HeldRaises.cs" Link="DreamWeave\HeldRaises.cs" />
     <!-- The RynthAi test tools' check/runner harness (no plugin code in it). -->
     <Compile Include="$(RynthSuiteRoot)Tools\RynthCore.RynthAiTests\Harness\Check.cs" Link="Harness\Check.cs" />
     <Compile Include="$(RynthSuiteRoot)Tools\RynthCore.RynthAiTests\Harness\Runner.cs" Link="Harness\Runner.cs" />

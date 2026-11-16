@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Text.Json;
+using RynthCore.Engine.UI.Sections;
 using RynthCore.Plugin.ServerPack;
 using RynthCore.RynthAiTests.Harness;
 
@@ -18,6 +20,9 @@ internal static class ServerPackModelTests
         r.Add("server pack: before any push the world name decides", WorldFallback);
         r.Add("server pack: override commands are checked before sending", ForceCommands);
         r.Add("server pack: the sections manifest declares the server and a server-only card", SectionsJson);
+        r.Add("server pack: no bar menu writes no barMenu key", NoBarMenuKey);
+        r.Add("server pack: the bar menu items reach the engine parser as given", BarMenuRoundTrip);
+        r.Add("server pack: a bar menu tooltip with quotes and backslashes round-trips", BarMenuEscapes);
         r.Add("server pack: logout clears the verdict", ClearOnLogout);
         r.Add("server pack: the card's botting line and address", InfoText);
         r.Add("server pack: the RynthServer.Profile JSON carries the server's settings", ProfileJson);
@@ -215,6 +220,57 @@ internal static class ServerPackModelTests
         var quoted = new ServerPackInfo("odd", "Odd \"Name\"\n", new[] { "a\\b" }, Array.Empty<string>());
         using JsonDocument odd = JsonDocument.Parse(ServerPackModel.BuildSectionsJson(quoted, "RynthOdd"));
         Check.Eq(odd.RootElement.GetProperty("servers")[0].GetProperty("hosts")[0].GetString(), "a\\b", "escaped");
+    }
+
+    private static ServerBarMenuItem[] MenuItems() => new[]
+    {
+        new ServerBarMenuItem("market", "Market", ((char)0xE470).ToString(), "/rserver market"),
+        new ServerBarMenuItem("suit", "Suit Builder", ((char)0xE40A).ToString(), "/rserver suit"),
+        new ServerBarMenuItem("abilities", "Class Abilities", ((char)0xE6A2).ToString(), "/rserver abilities"),
+    };
+
+    private static void NoBarMenuKey()
+    {
+        string plain = ServerPackModel.BuildSectionsJson(Coldeve(), "RynthColdeve");
+        Check.Eq(ServerPackModel.BuildSectionsJson(Coldeve(), "RynthColdeve", null, barMenu: null), plain, "null pages and null menu are the default");
+        Check.Eq(ServerPackModel.BuildSectionsJson(Coldeve(), "RynthColdeve", null, barMenu: new List<ServerBarMenuItem>()), plain, "an empty menu is the default");
+        Check.False(plain.Contains("barMenu"), "no barMenu key");
+    }
+
+    private static void BarMenuRoundTrip()
+    {
+        ServerBarMenuItem[] items = MenuItems();
+        string json = ServerPackModel.BuildSectionsJson(Coldeve(), "RynthColdeve", null, barMenu: items);
+        SectionManifest m = SectionManifestParser.Parse("RynthColdeve", json, out string error);
+        Check.Eq(error, string.Empty, "parses clean: " + error);
+        SectionBarMenuItem[] menu = m.Windows.Single().Menu;
+        Check.Eq(menu.Length, 3, "three items");
+        for (int i = 0; i < items.Length; i++)
+        {
+            Check.Eq(menu[i].Id, items[i].Id, "id " + i);
+            Check.Eq(menu[i].Tooltip, items[i].Tooltip, "tooltip " + i);
+            Check.Eq(menu[i].Icon, items[i].Icon, "icon " + i);
+            Check.Eq(menu[i].Command, items[i].Command, "command " + i);
+        }
+
+        // With windows of the server's own (ServerWindows), the menu stays on the server's window only.
+        var own = new[] { new ServerWindow("skills", "Skills", "x", 300, 400, 200, 200, false, _ => default) };
+        SectionManifest both = SectionManifestParser.Parse("RynthColdeve",
+            ServerPackModel.BuildSectionsJson(Coldeve(), "RynthColdeve", null, own, barMenu: items), out error);
+        Check.Eq(error, string.Empty, "with a window of its own: parses clean: " + error);
+        Check.Eq(both.Windows.Length, 2, "with a window of its own: two windows");
+        Check.Eq(both.Windows[0].Menu.Length, 3, "with a window of its own: the server window has the menu");
+        Check.Eq(both.Windows[1].Menu.Length, 0, "with a window of its own: that window has none");
+    }
+
+    private static void BarMenuEscapes()
+    {
+        const string tip = "Say \"hi\" \\ there";
+        var items = new[] { new ServerBarMenuItem("odd", tip, ((char)0xE470).ToString(), "/rserver market") };
+        string json = ServerPackModel.BuildSectionsJson(Coldeve(), "RynthColdeve", null, barMenu: items);
+        SectionManifest m = SectionManifestParser.Parse("RynthColdeve", json, out string error);
+        Check.Eq(error, string.Empty, "parses clean: " + error);
+        Check.Eq(m.Windows.Single().Menu.Single().Tooltip, tip, "tooltip survives escaping");
     }
 
     private static void ClearOnLogout()

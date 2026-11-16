@@ -9,7 +9,7 @@
     <RynthPluginServerName>Derptide</RynthPluginServerName>
     <RynthPluginServerHosts>ac.derptide.net</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Derptide</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Derptide only: the server card (rules, account limits, botting policy, links, account setup) in the Mini Remote.</RynthPluginDescription>
+    <RynthPluginDescription>Derptide only: the server card (rules, account limits, botting policy, links, account setup) in its own window on the RynthCore bar.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

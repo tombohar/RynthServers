@@ -20,6 +20,9 @@
 //   ServerPages(list)          pages of its own (ServerPackPages.cs): sub-tabs of the Mini Remote's
 //                              Server section, only while its server is active, and tabs of the
 //                              /rserver window. Draw runs on the render thread.
+//   ServerWindows(list)        windows of its own on RynthCore's bar (ServerPackWindows.cs, 2026-11-07:
+//                              RynthDreamWeave's Skills panel), only while its server is active;
+//                              "frameless" ones draw their own frame (engines with v90 windows).
 //   ServerChatText(...)        every incoming chat line (pump thread), to read the server's replies
 //                              and hide the ones answering the plugin's own requests (eat).
 //   ServerChatBar(text)        every line sent through the chat bar (AC's thread: note it only),
@@ -29,7 +32,10 @@
 //   SetProfileValue(key, n)    a live number in its "RynthServer.Profile" ("values"), for other
 //                              plugins that apply a server rule without knowing the server.
 //   ServerCommandVerbs(list)   its own "/rserver <verb>" words, handled in ServerChatCommand.
+//   ServerUsageLines(add)      the usage lines for those words, after the shared two (help, unknown word).
 //   RunOnTick(action)          work for the next tick (a page's button, on the render thread).
+//   ServerCardActions()        the server's own buttons at the top of its card, under RynthCore's verdict
+//                              (render thread: ImGui calls only; queue work with RunOnTick).
 //   Send(command)              a chat command as if typed (pump thread, logged in only);
 //   LogTagged(text)            the engine log, "[RynthConquest] ..."; ChatLine(text) the chat window.
 //   Resources\quests.<id>.csv  (no code) the server's own quest list: embedded by ServerPlugin.props and
@@ -66,9 +72,13 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
 
     private readonly ServerPackModel _model;
     private readonly ServerPackUi _ui;
-    private readonly string _sectionsJson;
+    private string? _sectionsJson;
     // The server's own pages (ServerPages), validated; what was left out is logged at Initialize.
     private readonly List<ServerPage> _pages;
+    // The server's own windows (ServerWindows), validated the same way.
+    private readonly List<ServerWindow> _windows;
+    // The server window's bar-icon dropdown (ServerBarMenu), for the sections manifest.
+    private readonly List<ServerBarMenuItem> _barMenu = new();
     private readonly List<string> _pageNotes = new();
     private readonly ServerPackSettings _settings = new(ServerPackSettings.DefaultPath(RynthPluginInfo.Name));
     private readonly ServerProfileValues _profileValues = new();
@@ -80,6 +90,8 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
     private readonly ConcurrentQueue<Action> _tickActions = new();
     // The server's own "/rserver" verbs (ServerCommandVerbs).
     private readonly HashSet<string> _serverVerbs = new(StringComparer.OrdinalIgnoreCase);
+    // The server's own "/rserver" usage lines (ServerUsageLines), after the shared two.
+    private readonly List<string> _usageLines = new();
     private volatile bool _loginComplete;
     private volatile string? _world;
     private bool _wasActive;
@@ -91,11 +103,15 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         var pages = new List<ServerPage>();
         ServerPages(pages);
         _pages = ServerPackPages.Validate(pages, _pageNotes.Add);
+        var windows = new List<ServerWindow>();
+        ServerWindows(windows);
+        _windows = ServerPackWindows.Validate(windows, _pageNotes.Add);
         var verbs = new List<string>();
         ServerCommandVerbs(verbs);
         foreach (string v in verbs) if (!string.IsNullOrWhiteSpace(v)) _serverVerbs.Add(v.Trim());
-        _ui = new ServerPackUi(_model, RynthPluginInfo.Name + " " + Marshal.PtrToStringAnsi(VersionPointer), () => _world, _pages);
-        _sectionsJson = ServerPackModel.BuildSectionsJson(info, RynthPluginInfo.Name, _pages);
+        ServerUsageLines(_usageLines.Add);
+        _ui = new ServerPackUi(_model, RynthPluginInfo.Name + " " + Marshal.PtrToStringAnsi(VersionPointer), () => _world, _pages, DrawCardActions);
+        ServerBarMenu(_barMenu);
     }
 
     internal ServerPackInfo Info => _model.Info;
@@ -126,10 +142,33 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
     /// instead of being read as another server's id. Called once, from the constructor.
     /// </summary>
     partial void ServerCommandVerbs(List<string> verbs);
+    /// <summary>
+    /// Usage lines for the server's own verbs, printed after the shared two by "/rserver help" and an
+    /// unknown word. Called once, from the constructor (no Host yet).
+    /// </summary>
+    partial void ServerUsageLines(Action<string> add);
     /// <summary>Extra lines for "/rserver info".</summary>
     partial void ServerInfoLines(Action<string> line);
     /// <summary>The server's own pages (ServerPackPages.cs). Called once, from the constructor (no Host yet).</summary>
     partial void ServerPages(List<ServerPage> pages);
+    /// <summary>The server's own windows on RynthCore's bar (ServerPackWindows.cs). Called once, from the constructor (no Host yet).</summary>
+    partial void ServerWindows(List<ServerWindow> windows);
+    /// <summary>Game event types (0xF7B0 events) the server's code wants on <see cref="ServerMessage"/>. Called once, at Initialize.</summary>
+    partial void ServerMessageInterest(List<uint> gameEvents);
+    /// <summary>A server message asked for in ServerMessageInterest (pump thread; <paramref name="body"/> is the bytes after
+    /// the opcode, valid only during the call: RynthCore.PluginSdk.Net.ServerMessage reads it).</summary>
+    partial void ServerMessage(uint opcode, ReadOnlySpan<byte> body);
+    /// <summary>Every frame while logged in (render thread, AC's main thread; the engine's ImGui context current).</summary>
+    partial void ServerRender();
+    /// <summary>
+    /// Items for a hover dropdown on the server window's bar icon (RynthCore API 95; an older engine
+    /// ignores it). Called once, from the constructor (no Host yet).
+    /// </summary>
+    partial void ServerBarMenu(List<ServerBarMenuItem> items);
+    /// <summary>
+    /// Drawn at the top of the server card, under RynthCore's verdict; render thread; queue work with RunOnTick.
+    /// </summary>
+    partial void ServerCardActions();
     /// <summary>
     /// An incoming chat line (pump thread, logged in only): set <paramref name="eat"/> to keep it out of
     /// the chat window (it comes in true when an earlier plugin already ate it).
@@ -148,6 +187,9 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
 
     /// <summary>The live numbers of the profile ("values"). Any thread.</summary>
     internal ServerProfileValues ProfileValues => _profileValues;
+
+    // A delegate cannot bind an unimplemented partial method (CS0762), so the card gets this wrapper.
+    private void DrawCardActions() => ServerCardActions();
 
     /// <summary>The pages this plugin draws.</summary>
     internal IReadOnlyList<ServerPage> Pages => _pages;
@@ -180,8 +222,19 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         _settings.Load();
         if (_settings.LastError.Length > 0) LogTagged($"Settings ({_settings.FilePath}) not read: {_settings.LastError}; using defaults.");
         ServerInitialize();
+        // The server's own server-message wishes (ServerMessageInterest, 2026-11-07), streamed to ServerMessage.
+        var events = new List<uint>();
+        ServerMessageInterest(events);
+        if (events.Count > 0 && Host.HasServerMessages)
+        {
+            int r = Host.SetServerMessageInterest(ReadOnlySpan<uint>.Empty, events.ToArray());
+            if (r != 1) LogTagged($"Server messages not streamed (SetServerMessageInterest answered {r}).");
+        }
         return 0;
     }
+
+    /// <summary>RynthPluginOnServerMessage (pump thread): a server message the server's code asked for.</summary>
+    internal void OnServerMessage(uint opcode, ReadOnlySpan<byte> body) => ServerMessage(opcode, body);
 
     // Also called on a freshly (re)loaded plugin while already in game.
     public override void OnLoginComplete()
@@ -223,6 +276,9 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
             catch (Exception ex) { LogTagged($"A queued action failed: {ex.GetType().Name}: {ex.Message}"); }
         }
 
+        // A queued web-panel open is answered from here (ServerPackWeb.cs).
+        PollWeb();
+
         bool active = Active;
         if (active && !_wasActive && Info.Botting == BottingPolicy.Forbidden)
             ChatLine($"[{RynthPluginInfo.Name}] {Info.Name} forbids bots: don't run RynthAi's combat, navigation or looting here.");
@@ -251,18 +307,55 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
     /// (the manifest is static): the engine only collects it once in game, and keeping it across
     /// logout and character switches stops the server dropping out of Options > Diagnostics.
     /// </summary>
-    internal string? BuildSectionsJson() => _sectionsJson;
+    internal string? BuildSectionsJson()
+        => _sectionsJson ??= ServerPackModel.BuildSectionsJson(Info, RynthPluginInfo.Name, _pages, _windows,
+            frameless: _windows.Count > 0 && Host.HasFramelessWindows, barMenu: _barMenu);
+
+    /// <summary>
+    /// RynthPluginRenderEmbed "window:&lt;id&gt;": one of the server's own windows (ServerWindows), into the
+    /// host's window. False for an id this plugin doesn't have, or before login. Render thread.
+    /// </summary>
+    internal bool RenderServerWindow(string id, bool popped, out float wantHeight, out float wantWidth)
+    {
+        wantHeight = 0;
+        wantWidth = 0;
+        ServerWindow? window = _windows.Find(w => w.Id == id);
+        if (window == null || !_loginComplete) return false;
+        IntPtr previous = ImGui.GetCurrentContext();
+        IntPtr context = previous != IntPtr.Zero ? previous : Host.ImGuiContext;
+        if (context == IntPtr.Zero) return false;
+        ImGui.SetCurrentContext(context);
+        try
+        {
+            System.Numerics.Vector2 want = window.Draw(popped);
+            wantHeight = want.Y;
+            wantWidth = want.X;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Host.Log($"[{RynthPluginInfo.Name}] Window {window.Title} failed: {ex.Message}");
+            return false;
+        }
+        finally { ImGui.SetCurrentContext(previous); }
+    }
 
     // ── Drawing ──────────────────────────────────────────────────────────
 
     /// <summary>The standalone card window. Render thread.</summary>
     public override void OnRender()
     {
-        if (!_loginComplete || !_ui.WindowOpen || Host.ImGuiContext == IntPtr.Zero) return;
+        if (!_loginComplete || Host.ImGuiContext == IntPtr.Zero) return;
         IntPtr previous = ImGui.GetCurrentContext();
         ImGui.SetCurrentContext(Host.ImGuiContext);
-        try { _ui.RenderWindow(); }
-        catch (Exception ex) { Host.Log($"[{RynthPluginInfo.Name}] Server window failed: {ex.Message}"); _ui.WindowOpen = false; }
+        try
+        {
+            try { ServerRender(); }
+            catch (Exception ex) { LogTagged($"Render hook failed: {ex.GetType().Name}: {ex.Message}"); }
+            if (!_ui.WindowOpen) return;
+            try { _ui.RenderWindow(); }
+            catch (Exception ex) { Host.Log($"[{RynthPluginInfo.Name}] Server window failed: {ex.Message}"); _ui.WindowOpen = false; }
+        }
         finally { ImGui.SetCurrentContext(previous); }
     }
 
@@ -402,9 +495,10 @@ public sealed partial class ServerPackPlugin : RynthPluginBase
         bool handled = false;
         ServerChatCommand(parts, ref handled);
         if (handled) return;
-        if (verb == ServerVerb.Unknown) Reply.Fail(ServerPackCommands.Unknown(parts[1]) + " " + ServerPackCommands.Usage(Info.Name)[0]);
-        else ChatLine(ServerPackCommands.Usage(Info.Name)[0]);
-        ChatLine(ServerPackCommands.Usage(Info.Name)[1]);
+        string[] usage = ServerPackCommands.Usage(Info.Name, _usageLines);
+        if (verb == ServerVerb.Unknown) Reply.Fail(ServerPackCommands.Unknown(parts[1]) + " " + usage[0]);
+        else ChatLine(usage[0]);
+        for (int i = 1; i < usage.Length; i++) ChatLine(usage[i]);
     }
 
     private void PrintInfo()

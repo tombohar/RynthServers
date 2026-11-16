@@ -20,6 +20,11 @@ internal static class Program
         QuestPackTests.Register(runner);
         LevistrasTests.Register(runner);
         ServerPackCommandsTests.Register(runner);
+        DreamWeaveSkillsTests.Register(runner);
+        DreamWeaveTests.Register(runner);
+        ServerWebOpenTests.Register(runner);
+        ServerWebPanelTests.Register(runner);
+        DreamWeaveWebTests.Register(runner);
         return runner.Run("RynthServerPack tests", args.Length > 0 ? args[0] : null);
     }
 }

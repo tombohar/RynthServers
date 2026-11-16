@@ -21,6 +21,20 @@ public static unsafe class ServerPackExports
     private static int Init(RynthCoreApiNative* api) => Runtime.Init(api);
 
     /// <summary>
+    /// Plugin API v78: a reassembled server message the server's code asked for (ServerMessageInterest,
+    /// 2026-11-07). <paramref name="data"/> is the message after its opcode, valid only during the call. Pump thread.
+    /// </summary>
+    [UnmanagedCallersOnly(EntryPoint = "RynthPluginOnServerMessage", CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void OnServerMessage(uint opcode, byte* data, int length)
+    {
+        try
+        {
+            Runtime.Plugin?.OnServerMessage(opcode, data != null && length > 0 ? new ReadOnlySpan<byte>(data, length) : ReadOnlySpan<byte>.Empty);
+        }
+        catch { /* never let a managed exception cross the native boundary */ }
+    }
+
+    /// <summary>
     /// Plugin API v68 plugin-to-plugin interfaces: "RynthServer.Profile" v1 (ServerPackInterface),
     /// the server's settings for any plugin RynthCore's GetServerStateJson points at this one, and
     /// "RynthServer.QuestPack" v1, the server's own quest list when the plugin has one.
@@ -81,6 +95,18 @@ public static unsafe class ServerPackExports
     }
 
     /// <summary>
+    /// The same while RynthCore's ImGui shell is off (the bar UI: the engine calls this instead of
+    /// RynthPluginRender). Without it the per-frame ServerRender hook never ran there (2026-11-07:
+    /// RynthDreamWeave's "open this instead of AC's Character window" didn't). Render thread.
+    /// </summary>
+    [UnmanagedCallersOnly(EntryPoint = "RynthPluginRenderOverlay", CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static void RenderOverlay()
+    {
+        try { Runtime.OnRender(); }
+        catch { /* an exception crossing UnmanagedCallersOnly would fail-fast the client */ }
+    }
+
+    /// <summary>
     /// The engine's plugin-command broker: "servermenu" from RynthCore (2026.10.5.48+). The ANSI
     /// strings are copied before returning (the caller frees them); the payload is only parsed, so
     /// any thread is fine.
@@ -112,11 +138,18 @@ public static unsafe class ServerPackExports
         {
             if (surface == null) return 0;
             string name = Marshal.PtrToStringUTF8((IntPtr)surface) ?? string.Empty;
-            if (name.EndsWith(":popout", StringComparison.Ordinal)) name = name[..^":popout".Length];
+            bool popped = name.EndsWith(":popout", StringComparison.Ordinal);
+            if (popped) name = name[..^":popout".Length];
             var plugin = Runtime.Plugin;
             if (plugin == null) return 0;
-            float wantH;
-            if (name.Equals(ServerPackModel.WindowSurface, StringComparison.Ordinal))
+            float wantH, wantW = 0;
+            string? ownWindow = ServerPackWindows.IdOf(name);
+            if (ownWindow != null)
+            {
+                // One of the server's own windows (ServerWindows, 2026-11-07); it may size its width too.
+                if (!plugin.RenderServerWindow(ownWindow, popped, out wantH, out wantW)) return 0;
+            }
+            else if (name.Equals(ServerPackModel.WindowSurface, StringComparison.Ordinal))
             {
                 if (!plugin.RenderEmbeddedWindow(out wantH)) return 0;
             }
@@ -129,7 +162,7 @@ public static unsafe class ServerPackExports
                 string? page = ServerPackPages.PageIdOf(name, RynthPluginInfo.ServerId);
                 if (page == null || !plugin.RenderEmbeddedPage(page, out wantH)) return 0;
             }
-            if (wantWidth != null) *wantWidth = width;
+            if (wantWidth != null) *wantWidth = wantW > 0 ? wantW : width;
             if (wantHeight != null) *wantHeight = wantH;
             return 1;
         }

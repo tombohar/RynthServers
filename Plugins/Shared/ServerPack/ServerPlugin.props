@@ -49,6 +49,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackModel.cs" Link="ServerPack\ServerPackModel.cs" />
     <!-- The server's own pages, settings file, reply window and Refresh row (ServerPackPlugin.cs lists the hooks). -->
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackPages.cs" Link="ServerPack\ServerPackPages.cs" />
+    <!-- Windows of its own on RynthCore's bar (ServerWindows, 2026-11-07). -->
+    <Compile Include="$(MSBuildThisFileDirectory)ServerPackWindows.cs" Link="ServerPack\ServerPackWindows.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackSettings.cs" Link="ServerPack\ServerPackSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerChatRequest.cs" Link="ServerPack\ServerChatRequest.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackRefresh.cs" Link="ServerPack\ServerPackRefresh.cs" />
@@ -65,6 +67,10 @@
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\RynthServerQuestPackApi.cs" Link="Shared\RynthServerQuestPackApi.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackQuestPack.cs" Link="ServerPack\ServerPackQuestPack.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ServerPackInterface.cs" Link="ServerPack\ServerPackInterface.cs" />
+    <!-- Open a web page in the engine's panel, else the browser (allowlisted https only). -->
+    <Compile Include="$(MSBuildThisFileDirectory)ServerWebOpen.cs" Link="ServerPack\ServerWebOpen.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ServerWebPanel.cs" Link="ServerPack\ServerWebPanel.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ServerPackWeb.cs" Link="ServerPack\ServerPackWeb.cs" />
   </ItemGroup>
 
   <ItemGroup>

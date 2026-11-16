@@ -35,7 +35,7 @@ internal static class ServerProjectsTests
         "levistras",
     };
 
-    private static string PluginsDir()
+    internal static string PluginsDir()
     {
         string? dir = AppContext.BaseDirectory;
         while (dir != null && !Directory.Exists(Path.Combine(dir, "Plugins", "Shared", "ServerPack")))

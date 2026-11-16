@@ -9,7 +9,7 @@
     <RynthPluginServerName>Coldeve</RynthPluginServerName>
     <RynthPluginServerHosts>play.coldeve.ac</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Coldeve</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Coldeve only: the server card (rules, account limits, botting policy, links, account setup) in the Mini Remote.</RynthPluginDescription>
+    <RynthPluginDescription>Coldeve only: the server card (rules, account limits, botting policy, links, account setup) in its own window on the RynthCore bar.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

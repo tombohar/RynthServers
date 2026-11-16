@@ -12,7 +12,7 @@
     <RynthPluginServerName>Levistras</RynthPluginServerName>
     <RynthPluginServerHosts>levistras.acportalstorm.com</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Levistras</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Levistras only: the server card (rules, account limits, botting policy, account setup) in the Mini Remote, and Levistras's quests in RynthOracle.</RynthPluginDescription>
+    <RynthPluginDescription>Levistras only: the server card (rules, account limits, botting policy, account setup) in its own window on the RynthCore bar, and Levistras's quests in RynthOracle.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

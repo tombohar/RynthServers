@@ -14,7 +14,7 @@
     <RynthPluginServerName>Conquest</RynthPluginServerName>
     <RynthPluginServerHosts>acconquest.ddns.net</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Conquest|ConquestAC</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Conquest only: the server card, and Conquest's bank (with auto-deposit), augmentations, levels past 275, fellowships, custom quests and leaderboards in the Mini Remote, and Conquest's quests in RynthOracle.</RynthPluginDescription>
+    <RynthPluginDescription>Conquest only: the server card, and Conquest's bank (with auto-deposit), augmentations, levels past 275, fellowships, custom quests and leaderboards in its own window on the RynthCore bar, and Conquest's quests in RynthOracle.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

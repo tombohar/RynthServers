@@ -26,6 +26,7 @@ internal sealed class ServerPackUi
     private readonly Func<string?> _world;
     private readonly string _windowTitle;
     private readonly IReadOnlyList<ServerPage> _pages;
+    private readonly Action? _cardActions;
     private string _status = string.Empty;
 
     /// <summary>The standalone window is open ("/rserver").</summary>
@@ -34,12 +35,14 @@ internal sealed class ServerPackUi
     /// <param name="pluginLabel">"RynthColdeve 0.1.0", for the title and the card.</param>
     /// <param name="world">The world name the client reports now (null when unknown).</param>
     /// <param name="pages">The server's own pages: tabs of the window after the card.</param>
-    public ServerPackUi(ServerPackModel model, string pluginLabel, Func<string?> world, IReadOnlyList<ServerPage>? pages = null)
+    /// <param name="cardActions">The server's own buttons, drawn under the verdict (render thread); null when it has none.</param>
+    public ServerPackUi(ServerPackModel model, string pluginLabel, Func<string?> world, IReadOnlyList<ServerPage>? pages = null, Action? cardActions = null)
     {
         _model = model;
         _pluginLabel = pluginLabel;
         _world = world;
         _pages = pages ?? Array.Empty<ServerPage>();
+        _cardActions = cardActions;
         _windowTitle = model.Info.Name + " server (" + pluginLabel + ")##server_" + model.Info.Id;
     }
 
@@ -82,6 +85,7 @@ internal sealed class ServerPackUi
     {
         ServerPackInfo info = _model.Info;
         RenderVerdict(info);
+        _cardActions?.Invoke();
         ImGui.Separator();
         RenderFacts(info);
         if (info.Commands.Length > 0)

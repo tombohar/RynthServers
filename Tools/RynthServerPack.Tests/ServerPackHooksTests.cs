@@ -24,6 +24,7 @@ internal static class ServerPackHooksTests
         r.Add("hooks: settings migration runs once, and a broken file means defaults", SettingsMigration);
         r.Add("hooks: profile values are published, validated and read back", ProfileValues);
         r.Add("hooks: the own-reply window opens, stretches and closes", ReplyWindow);
+        r.Add("hooks: the card draws server actions under the verdict, once", CardActions);
     }
 
     internal static string TempDir()
@@ -198,5 +199,46 @@ internal static class ServerPackHooksTests
         Check.True(req.Awaiting(7000), "a reply line stretches it");
         req.Clear();
         Check.False(req.Awaiting(1001), "cleared");
+    }
+
+    // Source scan: the card hands the server's own buttons a spot right under RynthCore's verdict.
+    private static string ServerPackDir()
+    {
+        string? dir = AppContext.BaseDirectory;
+        while (dir != null && !Directory.Exists(Path.Combine(dir, "Plugins", "Shared", "ServerPack")))
+            dir = Path.GetDirectoryName(dir);
+        if (dir == null) throw new DirectoryNotFoundException("Plugins\\Shared\\ServerPack not found above " + AppContext.BaseDirectory);
+        return Path.Combine(dir, "Plugins", "Shared", "ServerPack");
+    }
+
+    private static int CountOf(string text, string needle)
+    {
+        int n = 0, at = 0;
+        while ((at = text.IndexOf(needle, at, StringComparison.Ordinal)) >= 0) { n++; at += needle.Length; }
+        return n;
+    }
+
+    private static void CardActions()
+    {
+        string ui = File.ReadAllText(Path.Combine(ServerPackDir(), "ServerPackUi.cs"));
+        string plugin = File.ReadAllText(Path.Combine(ServerPackDir(), "ServerPackPlugin.cs"));
+
+        int body = ui.IndexOf("public void RenderBody()", StringComparison.Ordinal);
+        Check.True(body >= 0, "RenderBody exists");
+        int verdict = ui.IndexOf("RenderVerdict(info);", body, StringComparison.Ordinal);
+        int facts = ui.IndexOf("RenderFacts(info);", body, StringComparison.Ordinal);
+        Check.True(verdict > body && facts > verdict, "RenderBody draws the verdict, then the facts");
+        Check.Eq(CountOf(ui, "_cardActions?.Invoke()"), 1, "the card actions are invoked exactly once");
+        int call = ui.IndexOf("_cardActions?.Invoke()", StringComparison.Ordinal);
+        Check.True(call > verdict && call < facts, "the actions are drawn after the verdict and before the facts");
+
+        // Hookless servers must render exactly as before: no separator was added to the card (base RenderBody has 5).
+        int bodyEnd = ui.IndexOf("private void RenderVerdict", body, StringComparison.Ordinal);
+        Check.Eq(CountOf(ui.Substring(body, bodyEnd - body), "ImGui.Separator()"), 5, "RenderBody separator count is unchanged from base");
+        Check.False(ui.Substring(verdict, call - verdict).Contains("Separator", StringComparison.Ordinal), "no separator between the verdict and the actions");
+
+        Check.True(plugin.Contains("DrawCardActions", StringComparison.Ordinal) && plugin.Contains("partial void ServerCardActions();", StringComparison.Ordinal),
+                   "the plugin declares the ServerCardActions hook and DrawCardActions");
+        Check.True(plugin.Contains("_pages, DrawCardActions)", StringComparison.Ordinal), "the plugin passes DrawCardActions to ServerPackUi");
     }
 }

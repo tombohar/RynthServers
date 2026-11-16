@@ -7,7 +7,7 @@ Plugins for particular Asheron's Call emulator servers, for [RynthCore](https://
 | RynthILT | Infinite Leaftide (pets, Vaulted Dungeons, T11, banking, Dynamic Stamps, ...) |
 | RynthThreads | DreamWeave's Threads |
 | RynthAelrynth, RynthConquest, RynthLevistras | their server's card, quest pack and own pages |
-| RynthAChard, RynthColdeve, RynthDerptide, RynthDreamWeave, RynthEversong, RynthFrostACE, RynthFrostcull, RynthLeafDawn, RynthLeafdawning, RynthPortalStorm, RynthReefcull, RynthSundering, RynthThistlecrown | their server's card in the Mini Remote |
+| RynthAChard, RynthColdeve, RynthDerptide, RynthDreamWeave, RynthEversong, RynthFrostACE, RynthFrostcull, RynthLeafDawn, RynthLeafdawning, RynthPortalStorm, RynthReefcull, RynthSundering, RynthThistlecrown | their server's card in its own window on the RynthCore bar |
 
 The shared server-plugin build is `Plugins/Shared/ServerPack`.
 

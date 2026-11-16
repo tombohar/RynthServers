@@ -9,7 +9,7 @@
     <RynthPluginServerName>Eversong</RynthPluginServerName>
     <RynthPluginServerHosts>eversong.abrdns.com</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Eversong</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Eversong only: the server card (rules, account limits, botting policy, links, account setup) in the Mini Remote.</RynthPluginDescription>
+    <RynthPluginDescription>Eversong only: the server card (rules, account limits, botting policy, links, account setup) in its own window on the RynthCore bar.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

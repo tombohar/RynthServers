@@ -9,7 +9,7 @@
     <RynthPluginServerName>AChard</RynthPluginServerName>
     <RynthPluginServerHosts>a-chard.ddns.net</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>AChard|A-Chard</RynthPluginServerWorldNames>
-    <RynthPluginDescription>AChard only: the server card (rules, account limits, botting policy, links, account setup) in the Mini Remote.</RynthPluginDescription>
+    <RynthPluginDescription>AChard only: the server card (rules, account limits, botting policy, links, account setup) in its own window on the RynthCore bar.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />

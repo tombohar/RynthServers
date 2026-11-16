@@ -35,6 +35,7 @@ internal static class ServerData
                 "Experience bonuses: gear, augmentations, alt-character catch-up and offline (/bonus).",
                 "Fast tick opt-in: faster spell release, fast-chug and melee stick-to-target (/fasttick).",
                 "Web character sheet you can publish (/charsheet).",
+                "Class Abilities, Market and Suit Builder open logged in from the buttons on this card or the bar icon's menu (/rserver abilities | market | suit).",
             },
             Commands = new[]
             {

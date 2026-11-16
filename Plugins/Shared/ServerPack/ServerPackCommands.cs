@@ -46,12 +46,22 @@ internal static class ServerPackCommands
     /// <summary>"/rserver [show|hide|toggle]": the window after it.</summary>
     public static string Window(string serverName, bool shown) => CommandReply.Shown($"The {serverName} window", shown);
 
-    /// <summary>The usage, two lines.</summary>
-    public static string[] Usage(string serverName) => new[]
+    /// <summary>
+    /// The usage: two lines, then the server's own (ServerUsageLines), if any. With none, the two lines are
+    /// exactly what every server plugin has always printed.
+    /// </summary>
+    public static string[] Usage(string serverName, IReadOnlyList<string>? serverLines = null)
     {
-        $"/rserver [show|hide|toggle] - the {serverName} server card (also in the Mini Remote's Char section).",
-        $"/rserver info - what is known about {serverName}; /rserver auto|on|off - this character's override.",
-    };
+        var lines = new List<string>
+        {
+            $"/rserver [show|hide|toggle] - the {serverName} server card (also in the Mini Remote's Char section).",
+            $"/rserver info - what is known about {serverName}; /rserver auto|on|off - this character's override.",
+        };
+        if (serverLines != null)
+            foreach (string l in serverLines)
+                if (!string.IsNullOrWhiteSpace(l)) lines.Add(l.Trim());
+        return lines.ToArray();
+    }
 
     public static string Unknown(string word) => $"Unknown '/rserver {word}'.";
 }

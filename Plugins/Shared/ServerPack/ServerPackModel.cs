@@ -21,6 +21,9 @@ namespace RynthCore.Plugin.ServerPack;
 /// <summary>RynthCore's verdict for this plugin's server.</summary>
 internal sealed record ServerVerdictView(string Name, bool Active, string Force, bool Detected, string Reason);
 
+/// <summary>One entry of the server window's bar-icon dropdown: a click runs <paramref name="Command"/> as a chat command. <paramref name="Icon"/> is one Phosphor glyph.</summary>
+internal sealed record ServerBarMenuItem(string Id, string Tooltip, string Icon, string Command);
+
 internal sealed class ServerPackModel
 {
     /// <summary>Payloads longer than this are not ours (a push is a few hundred bytes).</summary>
@@ -169,7 +172,8 @@ internal sealed class ServerPackModel
     /// is easy to find, not mixed in with the rest; until then the card and pages were sub-tabs of a
     /// shared "Server" section of the Mini Remote.
     /// </summary>
-    public static string BuildSectionsJson(ServerPackInfo info, string pluginName, IReadOnlyList<ServerPage>? pages = null)
+    public static string BuildSectionsJson(ServerPackInfo info, string pluginName, IReadOnlyList<ServerPage>? pages = null,
+        IReadOnlyList<ServerWindow>? windows = null, bool frameless = false, IReadOnlyList<ServerBarMenuItem>? barMenu = null)
     {
         var sb = new StringBuilder(512);
         sb.Append("{\"version\":1,\"servers\":[{\"id\":").Append(Q(info.Id)).Append(",\"name\":").Append(Q(info.Name));
@@ -184,7 +188,24 @@ internal sealed class ServerPackModel
         sb.Append(",\"icon\":").Append(Q(WindowIcon));
         sb.Append(",\"width\":").Append(tabs ? ServerPackPages.Width : 460).Append(",\"height\":").Append(ServerPackPages.Height);
         sb.Append(",\"minWidth\":320,\"minHeight\":200,\"bar\":true,\"server\":").Append(Q(info.Id));
-        sb.Append("}]}");
+        // The bar icon's hover dropdown (RynthCore API 95); an older engine ignores the key.
+        if (barMenu != null && barMenu.Count > 0)
+        {
+            sb.Append(",\"barMenu\":[");
+            for (int i = 0; i < barMenu.Count; i++)
+            {
+                ServerBarMenuItem item = barMenu[i];
+                sb.Append(i == 0 ? "" : ",").Append("{\"id\":").Append(Q(item.Id));
+                sb.Append(",\"tooltip\":").Append(Q(item.Tooltip));
+                sb.Append(",\"icon\":").Append(Q(item.Icon));
+                sb.Append(",\"command\":").Append(Q(item.Command)).Append('}');
+            }
+            sb.Append(']');
+        }
+        sb.Append('}');
+        // The server's own windows (ServerWindows, ServerPackWindows.cs, 2026-11-07).
+        if (windows != null) sb.Append(ServerPackWindows.Json(windows, info.Id, frameless));
+        sb.Append("]}");
         return sb.ToString();
     }
 

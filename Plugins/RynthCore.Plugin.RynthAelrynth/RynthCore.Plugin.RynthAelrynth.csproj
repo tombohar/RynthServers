@@ -19,7 +19,7 @@
     <RynthPluginServerName>Aelrynth</RynthPluginServerName>
     <RynthPluginServerHosts>aelrynth.com|144.217.84.148</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>Aelrynth*|Aeshnidae*</RynthPluginServerWorldNames>
-    <RynthPluginDescription>Aelrynth only: the server card (its mods, links, account setup), Aelrynth's leaderboards and Trials records in the Mini Remote, the account vault in Global Inventory, the difficulty tier for RynthAi, and Aelrynth's quests in RynthOracle.</RynthPluginDescription>
+    <RynthPluginDescription>Aelrynth only: the server card (its mods, links, account setup), Aelrynth's leaderboards and Trials records in its own window on the RynthCore bar, the account vault in Global Inventory, the difficulty tier for RynthAi, and Aelrynth's quests in RynthOracle.</RynthPluginDescription>
   </PropertyGroup>
 
   <Import Project="..\Shared\ServerPack\ServerPlugin.props" />
