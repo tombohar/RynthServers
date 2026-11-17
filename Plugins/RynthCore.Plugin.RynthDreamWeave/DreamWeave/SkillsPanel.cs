@@ -32,11 +32,11 @@ internal sealed class SkillsPanel
     private const int HeaderH = 105, RuleH = 7, ListTop = 112, FooterH = 55, RowH = 20, BannerW = 280;
     private const int ScrollX = 281, ScrollW = 16, ScrollBtn = 16, ScrollCap = 3;
 
+    // The pictures the Leaderboards page shares are RetailCanvas's (moved there 2026-11-15, unchanged).
     private const uint ArtEdgeTop = 0x0600612Au, ArtEdgeLeft = 0x0600612Bu, ArtEdgeBottom = 0x0600612Cu, ArtEdgeRight = 0x0600612Du,
-        ArtCorner = 0x06006129u, ArtPage = 0x06004CC2u, ArtClose = 0x06001393u, ArtClosePressed = 0x06001394u,
-        ArtHeaderRule = 0x06004CB8u, ArtPlate = 0x060011A6u, ArtXpFill = 0x060011A5u, ArtRankFill = 0x06000F8Au, ArtRule = 0x06004CC7u, ArtRowSelected = 0x06000F93u,
-        ArtTrack = 0x06004C5Fu, ArtThumbTop = 0x06004C60u, ArtThumbMid = 0x06004C63u, ArtThumbBottom = 0x06004C66u,
-        ArtScrollUp = 0x06004C69u, ArtScrollDown = 0x06004C6Cu,
+        ArtCorner = 0x06006129u, ArtClose = 0x06001393u, ArtClosePressed = 0x06001394u,
+        ArtHeaderRule = 0x06004CB8u, ArtPlate = 0x060011A6u, ArtXpFill = 0x060011A5u, ArtRankFill = 0x06000F8Au,
+        ArtRule = RetailCanvas.ArtRule, ArtRowSelected = RetailCanvas.ArtRowSelected,
         ArtRaise = 0x06004CB6u, ArtRaiseGhost = 0x06004CB7u, ArtRaiseTen = 0x0600712Bu, ArtRaiseTenGhost = 0x0600712Cu;
     // Tab 3-slices: "Open" (the shown page) and "Closed" states.
     private static readonly uint[] TabOpen = { 0x06005D92u, 0x06005D94u, 0x06005D96u };
@@ -44,22 +44,24 @@ internal sealed class SkillsPanel
 
     private static uint Banner(SkillSection s) => s switch
     {
-        SkillSection.Specialized => 0x06000F90u,
-        SkillSection.Trained => 0x06000F86u,
-        SkillSection.Untrained => 0x06000F98u,
-        _ => 0x06000F89u,
+        SkillSection.Specialized => RetailCanvas.ArtBannerSpecialized,
+        SkillSection.Trained => RetailCanvas.ArtBannerTrained,
+        SkillSection.Untrained => RetailCanvas.ArtBannerUntrained,
+        _ => RetailCanvas.ArtBannerOther,
     };
 
-    // ── Colours (ImGui ABGR) ────────────────────────────────────────────
-    private const uint White = 0xFFFFFFFFu, Black = 0xFF000000u;
-    private static readonly uint Body = Rgb(235, 230, 209);          // OpenAC's "parchment" for the footer prompt
-    private static readonly uint TabOn = Rgb(204, 204, 204), TabOff = Rgb(127, 127, 127);
-    private static readonly uint Gold = Rgb(255, 242, 127);           // the level number (the layout's 1, .949, .498)
-    private static readonly uint Green = Rgb(0, 255, 0), Red = Rgb(255, 0, 0);
+    // ── Colours (ImGui ABGR): RetailCanvas's ────────────────────────────
+    private const uint White = RetailCanvas.White, Black = RetailCanvas.Black;
+    private static readonly uint Body = RetailCanvas.Body;
+    private static readonly uint TabOn = RetailCanvas.TabOn, TabOff = RetailCanvas.TabOff;
+    private static readonly uint Gold = RetailCanvas.Gold;
+    private static readonly uint Green = RetailCanvas.Green, Red = RetailCanvas.Red;
 
-    private static uint Rgb(int r, int g, int b) => 0xFF000000u | ((uint)b << 16) | ((uint)g << 8) | (uint)r;
+    private static uint Rgb(int r, int g, int b) => RetailCanvas.Rgb(r, g, b);
 
     private readonly RynthCoreHost _host;
+    // The drawing helpers (RetailCanvas.cs, shared with the Leaderboards page).
+    private readonly RetailCanvas _c;
     private readonly SkillsReader _reader;
     private readonly Action<Action> _onTick;
     private readonly Action<string> _chat;
@@ -73,8 +75,6 @@ internal sealed class SkillsPanel
     private float _attrScroll, _titleScroll;
     private readonly Func<bool> _replacesAc;
     private readonly Action<bool> _setReplacesAc;
-    private bool _thumbDrag;
-    private float _thumbGrab;
     // Resizing from the bottom edge (retail's Character window: height only). Design px, frame included.
     private bool _resizing;
     private float _resizeStartH, _resizeStartY, _dragH;
@@ -88,6 +88,7 @@ internal sealed class SkillsPanel
         Func<bool> replacesAc, Action<bool> setReplacesAc)
     {
         _host = host;
+        _c = new RetailCanvas(host);
         _reader = reader;
         _title = title;
         _onTick = onTick;
@@ -133,6 +134,7 @@ internal sealed class SkillsPanel
         _k = pct > 0 ? Math.Clamp(pct / 100f, 0.3f, 2.5f) : 1f;
         _dl = ImGui.GetWindowDrawList();
         _origin = new Vector2(MathF.Round(start.X + Frame * _k), MathF.Round(start.Y + Frame * _k));
+        _c.Begin(_dl, _origin, _k);
 
         // The height drawn: the window's, or while the bottom edge is dragged the dragged one (drawn past the
         // window's edge, the way retail's frame follows the mouse), and after the release the asked-for one
@@ -164,7 +166,7 @@ internal sealed class SkillsPanel
     {
         Page(pageH);
         Tabs();
-        _tipKey = 0;
+        _c.ClearHover();
         if (_tab == 2) TitlesPage(sheet, pageH);
         else
         {
@@ -243,9 +245,7 @@ internal sealed class SkillsPanel
 
     // ── The Titles page (0x10000539) ────────────────────────────────────
 
-    private const uint ArtTitleRule = 0x06001420u;
-    // The red button, a 3-slice: left 32, a stretched 15-wide middle, right 32; pressed -1, ghosted -2.
-    private static readonly uint[] ArtRedButton = { 0x06004C96u, 0x06004C99u, 0x06004C9Cu };
+    private const uint ArtTitleRule = RetailCanvas.ArtTitleRule;
     private const int TitleRowH = 24;
 
     private void TitlesPage(SkillsSheet sheet, int pageH)
@@ -295,15 +295,7 @@ internal sealed class SkillsPanel
         Sprite(ArtTitleRule, 0, ruleY, PanelW, 9, 0xFF54788Fu);
         // "Set as Display Title": ghosted until another title than the displayed one is selected.
         bool can = _titleSelected != 0 && _titleSelected != book.Displayed;
-        ImGui.SetCursorScreenPos(P(53, buttonY));
-        bool pressed = ImGui.InvisibleButton("##dw_set_title", S(200, 32));
-        bool held = ImGui.IsItemActive();
-        uint d = !can ? 2u : held ? 1u : 0u;
-        Sprite(ArtRedButton[0] - d, 53, buttonY, 32, 32, 0xFF20208Cu);
-        Sprite(ArtRedButton[1] - d, 85, buttonY, 136, 32, 0xFF20208Cu);
-        Sprite(ArtRedButton[2] - d, 221, buttonY, 32, 32, 0xFF20208Cu);
-        Text(RetailData.Pal18, "Set as Display Title", 53, buttonY, 200, 32, can ? White : TabOff, center: true);
-        if (pressed && can)
+        if (_c.RedButton("##dw_set_title", "Set as Display Title", 53, buttonY, 200, can))
         {
             uint id = _titleSelected;
             _onTick(() => _reader.SetDisplayTitle(_host, id, _chat));
@@ -399,17 +391,7 @@ internal sealed class SkillsPanel
     {
         // The page background is a 48x48 black at alpha 175, tiled: the world shows through, as retail.
         // It runs under the tab row too (retail's slanted tab corners show it, not the world).
-        IntPtr t = Tex(RynthIconKind.UiSprite, ArtPage);
-        int fullH = TabH + pageH;
-        for (int y = 0; y < fullH; y += 48)
-            for (int x = 0; x < PanelW; x += 48)
-            {
-                int w = Math.Min(48, PanelW - x), h = Math.Min(48, fullH - y);
-                if (t != IntPtr.Zero)
-                    _dl.AddImage(t, P(x, y), P(x + w, y + h), Vector2.Zero, new Vector2(w / 48f, h / 48f));
-                else
-                    _dl.AddRectFilled(P(x, y), P(x + w, y + h), 0xAF000000u);
-            }
+        _c.PageBackground(0, 0, PanelW, TabH + pageH);
     }
 
     private void Tabs()
@@ -529,97 +511,16 @@ internal sealed class SkillsPanel
         if (rows.Count > visible) ScrollBar("skills", ref _scroll, top, listH, visible, rows.Count, maxScroll);
     }
 
-    // ── The tooltip (drawn last, over everything) ───────────────────────
+    // ── The tooltip (drawn last, over everything) and the scrollbar: RetailCanvas's ──
     // Hovering a row a moment shows retail's tooltip: a skill's formula and description, an attribute's
     // or vital's text, the displayed title's explanation.
 
-    private const long TooltipDelayMs = 400;
-    private const int TooltipWrap = 230;   // design px: retail breaks the description at about this width
-    private static readonly uint TooltipBorder = Rgb(196, 164, 92), TooltipBack = 0xE0000000u;
-    private uint _hoverId, _tipKey;
-    private long _hoverSince;
-    private string _tipCandidate = "";
-    private string? _tipText;
-
-    /// <summary>This frame, the mouse is on something with a tooltip (<paramref name="key"/> tells one row from another).</summary>
-    private void Hover(uint key, string text)
-    {
-        _tipKey = key;
-        _tipCandidate = text;
-    }
-
-    private void UpdateTooltip()
-    {
-        long now = Environment.TickCount64;
-        if (_tipKey != _hoverId) { _hoverId = _tipKey; _hoverSince = now; }
-        _tipText = _tipKey != 0 && now - _hoverSince >= TooltipDelayMs && _tipCandidate.Length > 0 ? _tipCandidate : null;
-    }
-
-    private void Tooltip()
-    {
-        if (_tipText == null) return;
-        RetailFont f = RetailData.Pal14;
-        List<string> lines = f.Wrap(_tipText, TooltipWrap);
-        if (lines.Count == 0) return;
-        int w = 0;
-        foreach (string l in lines) w = Math.Max(w, f.Measure(l));
-        int boxW = w + 8, boxH = lines.Count * f.LineHeight + 6;
-
-        // Below and right of the cursor, kept on screen. Design px from the panel's origin.
-        Vector2 mouse = ImGui.GetMousePos(), screen = ImGui.GetIO().DisplaySize;
-        float x = (mouse.X - _origin.X) / _k + 14, y = (mouse.Y - _origin.Y) / _k + 16;
-        float maxX = (screen.X - _origin.X) / _k - boxW - 2, maxY = (screen.Y - _origin.Y) / _k - boxH - 2;
-        int bx = (int)MathF.Round(Math.Max(-_origin.X / _k, Math.Min(x, maxX)));
-        int by = (int)MathF.Round(Math.Max(-_origin.Y / _k, Math.Min(y, maxY)));
-
-        ImDrawListPtr saved = _dl;
-        _dl = ImGui.GetForegroundDrawList();
-        try
-        {
-            _dl.AddRectFilled(P(bx, by), P(bx + boxW, by + boxH), TooltipBack);
-            _dl.AddRect(P(bx, by), P(bx + boxW, by + boxH), TooltipBorder, 0, ImDrawFlags.None, Math.Max(1f, _k));
-            for (int i = 0; i < lines.Count; i++)
-                Text(f, lines[i], bx + 4, by + 3 + i * f.LineHeight, boxW - 8, f.LineHeight, White);
-        }
-        finally { _dl = saved; }
-    }
-
-
+    private void Hover(uint key, string text) => _c.Hover(key, text);
+    private void UpdateTooltip() => _c.UpdateTooltip();
+    private void Tooltip() => _c.Tooltip();
 
     private void ScrollBar(string id, ref float scroll, int top, int h, int visible, int total, float maxScroll)
-    {
-        // The track: a chain of 16x32 links, tiled.
-        IntPtr track = Tex(RynthIconKind.UiSprite, ArtTrack);
-        for (int y = top + ScrollBtn; y < top + h - ScrollBtn; y += 32)
-        {
-            int th = Math.Min(32, top + h - ScrollBtn - y);
-            if (track != IntPtr.Zero) _dl.AddImage(track, P(ScrollX, y), P(ScrollX + ScrollW, y + th), Vector2.Zero, new Vector2(1, th / 32f));
-            else _dl.AddRectFilled(P(ScrollX + 6, y), P(ScrollX + 10, y + th), 0xFF3C6A8Au);
-        }
-        // The arrows.
-        if (Button("##dw_up_" + id, ArtScrollUp, ScrollX, top, ScrollW, ScrollBtn)) scroll = Math.Max(0, scroll - 1);
-        if (Button("##dw_dn_" + id, ArtScrollDown, ScrollX, top + h - ScrollBtn, ScrollW, ScrollBtn)) scroll = Math.Min(maxScroll, scroll + 1);
-
-        // The thumb: caps and a stretched blue middle, sized to the share of the list that shows.
-        int trackTop = top + ScrollBtn, trackH = h - 2 * ScrollBtn;
-        if (trackH <= 8) return;
-        int thumbH = Math.Clamp((int)(trackH * visible / (float)total), 16, trackH);
-        int thumbY = trackTop + (int)((trackH - thumbH) * (maxScroll > 0 ? scroll / maxScroll : 0));
-        ImGui.SetCursorScreenPos(P(ScrollX, trackTop));
-        ImGui.InvisibleButton("##dw_track_" + id, S(ScrollW, trackH));
-        float mouseY = (ImGui.GetMousePos().Y - _origin.Y) / _k;
-        if (ImGui.IsItemActivated())
-        {
-            if (mouseY >= thumbY && mouseY < thumbY + thumbH) { _thumbDrag = true; _thumbGrab = mouseY - thumbY; }
-            else scroll = Math.Clamp(scroll + (mouseY < thumbY ? -visible : visible), 0, maxScroll);
-        }
-        if (_thumbDrag && ImGui.IsItemActive() && trackH > thumbH)
-            scroll = Math.Clamp((mouseY - _thumbGrab - trackTop) / (trackH - thumbH) * maxScroll, 0, maxScroll);
-        if (!ImGui.IsItemActive()) _thumbDrag = false;
-        Sprite(ArtThumbTop, ScrollX, thumbY, ScrollW, ScrollCap, 0xFF8C5A1Eu);
-        Sprite(ArtThumbMid, ScrollX, thumbY + ScrollCap, ScrollW, thumbH - 2 * ScrollCap, 0xFF8C3A10u);
-        Sprite(ArtThumbBottom, ScrollX, thumbY + thumbH - ScrollCap, ScrollW, ScrollCap, 0xFF8C5A1Eu);
-    }
+        => _c.ScrollBar(id, ScrollX, ref scroll, top, h, visible, total, maxScroll);
 
     // ── The footer (0x10000240 with nothing selected, 0x10000247 with a row), shared by both pages ──
 
@@ -684,102 +585,20 @@ internal sealed class SkillsPanel
         if (Button("##dw_raise", canOne ? ArtRaise : ArtRaiseGhost, 260, y + 26, 30, 26) && canOne) raiseOne?.Invoke();
         if (showTen && Button("##dw_raise10", canTen ? ArtRaiseTen : ArtRaiseTenGhost, 260, y, 30, 26) && canTen) raiseTen?.Invoke();
     }
-    // ── Drawing helpers (design pixels in, screen pixels out) ───────────
+    // ── Drawing helpers (design pixels in, screen pixels out): RetailCanvas's ──
 
-    private Vector2 P(float x, float y) => new(_origin.X + x * _k, _origin.Y + y * _k);
-    private Vector2 S(float w, float h) => new(Math.Max(1, w * _k), Math.Max(1, h * _k));
-
-    private bool Hit(int x, int y, int w, int h)
-    {
-        Vector2 m = ImGui.GetMousePos(), a = P(x, y), b = P(x + w, y + h);
-        return m.X >= a.X && m.X < b.X && m.Y >= a.Y && m.Y < b.Y;
-    }
-
-    private IntPtr Tex(RynthIconKind kind, uint id) => id == 0 ? IntPtr.Zero : _host.GetIconTexture(kind, id);
-
-    /// <summary>A retail picture stretched over the box (a flat stand-in until the engine has made it).</summary>
-    private void Sprite(uint id, int x, int y, int w, int h, uint fallback)
-    {
-        if (w <= 0 || h <= 0) return;
-        IntPtr t = Tex(RynthIconKind.UiSprite, id);
-        if (t == IntPtr.Zero) { _dl.AddRectFilled(P(x, y), P(x + w, y + h), fallback); return; }
-        _dl.AddImage(t, P(x, y), P(x + w, y + h));
-    }
-
-    /// <summary>The top-left <paramref name="w"/> x <paramref name="h"/> of a <paramref name="texW"/> x <paramref name="texH"/> picture, unscaled.</summary>
+    private Vector2 P(float x, float y) => _c.P(x, y);
+    private Vector2 S(float w, float h) => _c.S(w, h);
+    private bool Hit(int x, int y, int w, int h) => _c.Hit(x, y, w, h);
+    private IntPtr Tex(RynthIconKind kind, uint id) => _c.Tex(kind, id);
+    private void Sprite(uint id, int x, int y, int w, int h, uint fallback) => _c.Sprite(id, x, y, w, h, fallback);
     private void SpriteCropped(uint id, int x, int y, int w, int h, int texW, int texH, uint fallback)
-    {
-        IntPtr t = Tex(RynthIconKind.UiSprite, id);
-        if (t == IntPtr.Zero) { _dl.AddRectFilled(P(x, y), P(x + w, y + h), fallback); return; }
-        _dl.AddImage(t, P(x, y), P(x + w, y + h), Vector2.Zero, new Vector2(Math.Min(1f, w / (float)texW), Math.Min(1f, h / (float)texH)));
-    }
-
-    private void Icon(uint id, int x, int y, int size)
-    {
-        IntPtr t = Tex(RynthIconKind.Icon, id);
-        if (t != IntPtr.Zero) _dl.AddImage(t, P(x, y), P(x + size, y + size));
-    }
-
-    /// <summary>A retail button: its picture, and true when clicked.</summary>
-    private bool Button(string imguiId, uint art, int x, int y, int w, int h)
-    {
-        ImGui.SetCursorScreenPos(P(x, y));
-        bool clicked = ImGui.InvisibleButton(imguiId, S(w, h));
-        Sprite(art, x, y, w, h, 0xFF3C8A3Cu);
-        return clicked;
-    }
-
-    /// <summary>
-    /// Text in a retail dat font, left-aligned (or <paramref name="right"/> / <paramref name="center"/>)
-    /// in the box and centred down it, glyph by glyph from the font's sheet; <paramref name="outline"/>
-    /// draws the font's outline sheet in black under it (the level number). ImGui's font stands in on an
-    /// engine without font sheets.
-    /// </summary>
+        => _c.SpriteCropped(id, x, y, w, h, texW, texH, fallback);
+    private void Icon(uint id, int x, int y, int size) => _c.Icon(id, x, y, size);
+    private bool Button(string imguiId, uint art, int x, int y, int w, int h) => _c.Button(imguiId, art, x, y, w, h);
     private void Text(RetailFont font, string? text, int x, int y, int w, int h, uint color,
         bool right = false, bool center = false, bool outline = false)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-        int width = font.Measure(text);
-        float left = right ? x + w - width : center ? x + (w - width) / 2f : x;
-        float top = y + (h - font.LineHeight) / 2f;
-        IntPtr sheet = Tex(RynthIconKind.FontSheet, font.Sheet);
-        if (sheet == IntPtr.Zero)
-        {
-            Vector2 sz = ImGui.CalcTextSize(text);
-            float fx = right ? P(x + w, 0).X - sz.X : center ? P(x + w / 2f, 0).X - sz.X / 2 : P(x, 0).X;
-            _dl.AddText(new Vector2(fx, P(0, y + h / 2f).Y - sz.Y / 2), color, text);
-            return;
-        }
-        left = MathF.Round(left);
-        top = MathF.Round(top);
-        if (outline && font.OutlineSheet != 0)
-        {
-            IntPtr back = Tex(RynthIconKind.FontSheet, font.OutlineSheet);
-            if (back != IntPtr.Zero) Glyphs(font, text, left, top, back, font.OutlineWidth, font.OutlineHeight, Black, font.BorderX, font.BorderY);
-        }
-        Glyphs(font, text, left, top, sheet, font.SheetWidth, font.SheetHeight, color, 0, 0);
-    }
-
-    private void Glyphs(RetailFont font, string text, float x, float y, IntPtr sheet, int sheetW, int sheetH, uint color, int bx, int by)
-    {
-        float pen = x;
-        foreach (char c in text)
-        {
-            if (!font.TryGlyph(c, out RetailGlyph g)) continue;
-            if (g.Width > 0 && g.Height > 0)
-            {
-                float gx = pen + g.Before - bx, gy = y + g.Top - by;
-                int sx = g.SheetX - bx, sy = g.SheetY - by, gw = g.Width + 2 * bx, gh = g.Height + 2 * by;
-                if (sx < 0) { gx -= sx; gw += sx; sx = 0; }
-                if (sy < 0) { gy -= sy; gh += sy; sy = 0; }
-                if (gw > 0 && gh > 0)
-                    _dl.AddImage(sheet, P(gx, gy), P(gx + gw, gy + gh),
-                        new Vector2(sx / (float)sheetW, sy / (float)sheetH),
-                        new Vector2((sx + gw) / (float)sheetW, (sy + gh) / (float)sheetH), color);
-            }
-            pen += g.Advance;
-        }
-    }
+        => _c.Text(font, text, x, y, w, h, color, right, center, outline);
 
     private static SkillLine? Find(SkillsSheet sheet, uint id)
     {

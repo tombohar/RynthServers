@@ -74,8 +74,12 @@ internal static class AttributesPage
     public static bool CanRaiseOne(SkillsSheet sheet, AttributeLine a)
         => a.Raisable && a.CostOne > 0 && sheet.UnassignedXp >= a.CostOne;
 
+    /// <summary>"+10": ten ranks, or the last ones when fewer than ten are left, as retail (SkillsLayout.TenStep).</summary>
     public static bool CanRaiseTen(SkillsSheet sheet, AttributeLine a)
-        => a.Raisable && a.CostTen > 0 && sheet.UnassignedXp >= a.CostTen;
+        => a.Raisable && Ten(a) is { Ranks: > 0 } t && sheet.UnassignedXp >= t.Cost;
+
+    public static (uint Ranks, long Cost) Ten(AttributeLine a)
+        => SkillsLayout.TenStep(a.IsVital ? RetailData.VitalXp : RetailData.AttributeXp, a.Ranks, a.XpSpent, a.CostTen);
 
     /// <summary>The way through the current rank (0..1) on the attribute or vital chart: the footer's blue bar.</summary>
     public static float RankProgress(AttributeLine a)

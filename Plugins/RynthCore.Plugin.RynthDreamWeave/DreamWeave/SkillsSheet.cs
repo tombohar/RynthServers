@@ -141,9 +141,36 @@ internal static class SkillsLayout
         return s.Trainable && s.TrainCredits > 0 && sheet.SkillCredits >= s.TrainCredits;
     }
 
-    /// <summary>Whether "+10" can be pressed now (trained or specialized, ten ranks left and affordable).</summary>
+    /// <summary>Whether "+10" can be pressed now (trained or specialized, a rank left and the step affordable).</summary>
     public static bool CanRaiseTen(SkillsSheet sheet, SkillLine s)
-        => s.Class >= SkillClass.Trained && s.Raisable && s.CostTen > 0 && sheet.UnassignedXp >= s.CostTen;
+        => s.Class >= SkillClass.Trained && s.Raisable && Ten(s) is { Ranks: > 0 } t && sheet.UnassignedXp >= t.Cost;
+
+    /// <summary>What "+10" buys for a trained or specialized skill (<see cref="TenStep"/> on its chart).</summary>
+    public static (uint Ranks, long Cost) Ten(SkillLine s) => TenStep(s.Class switch
+    {
+        SkillClass.Specialized => RetailData.SpecializedSkillXp,
+        SkillClass.Trained => RetailData.TrainedSkillXp,
+        _ => Array.Empty<uint>(),
+    }, s.Ranks, s.XpSpent, s.CostTen);
+
+    /// <summary>
+    /// Retail's "+10" (gmSkillUI / gmAttributeUI GetCostToRaise10, acclient 0x0049B130 / 0x0049CEE0): ten
+    /// ranks, or every rank left when fewer than ten are, for chart[ranks + n] - spent. The engine's +10
+    /// (<paramref name="costTen"/>) is -1 when fewer than ten are left, so the panel ghosted +10 for the last
+    /// nine ranks and a stat raised by tens stuck there (a #rynth-issues report, 2026-11-11, "Can't max
+    /// skills": a skill untrained and trained again comes back at rank 0, and twenty +10s leave a trained one
+    /// at 200 of 208). The engine's cost is used whenever it has one; the last ranks are priced from the same
+    /// portal chart, and the engine checks that price against its own before anything is sent. (0, -1): none.
+    /// </summary>
+    public static (uint Ranks, long Cost) TenStep(uint[] chart, uint ranks, uint spent, long costTen)
+    {
+        if (costTen > 0) return (10, costTen);
+        if (chart.Length == 0 || ranks + 1L >= chart.Length) return (0, -1);   // at the top (or no chart)
+        uint left = (uint)(chart.Length - 1 - ranks);
+        if (left >= 10) return (0, -1);   // ten are left yet the engine priced none: don't guess
+        long cost = (long)chart[ranks + left] - spent;
+        return cost > 0 ? (left, cost) : (0, -1);
+    }
 
     /// <summary>
     /// Retail's header line one: the allegiance rank's title for the heritage and sex, then the name

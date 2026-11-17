@@ -22,6 +22,8 @@ internal static class Program
         ServerPackCommandsTests.Register(runner);
         DreamWeaveSkillsTests.Register(runner);
         DreamWeaveTests.Register(runner);
+        DreamWeaveBoardsTests.Register(runner);
+        DreamWeaveXpBonusTests.Register(runner);
         ServerWebOpenTests.Register(runner);
         ServerWebPanelTests.Register(runner);
         DreamWeaveWebTests.Register(runner);

@@ -55,6 +55,10 @@
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthAelrynth\Aelrynth\VaultFeed.cs" Link="Aelrynth\VaultFeed.cs" />
     <!-- RynthDreamWeave's bank check for Lum/hr (pure part). -->
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\DreamWeaveBank.cs" Link="DreamWeave\DreamWeaveBank.cs" />
+    <!-- RynthDreamWeave's leaderboards: the /top reader, the automatic refresh and the saved boards (pure part). -->
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\DreamWeaveBoards.cs" Link="DreamWeave\DreamWeaveBoards.cs" />
+    <!-- RynthDreamWeave's offline bonus tracker: the server's lines, the read's timing, the clock, the saved reading (pure part). -->
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\DreamWeaveXpBonus.cs" Link="DreamWeave\DreamWeaveXpBonus.cs" />
     <!-- The difficulty tier RynthAelrynth publishes for RynthAi (and the value names, RynthServerProfileApi.cs). -->
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthAelrynth\Aelrynth\AelrynthDifficulty.cs" Link="Aelrynth\AelrynthDifficulty.cs" />
     <Compile Include="$(RynthSuiteRoot)Plugins\Shared\RynthServerProfileApi.cs" Link="Shared\RynthServerProfileApi.cs" />
@@ -84,6 +88,7 @@
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\AttributesTitles.cs" Link="DreamWeave\AttributesTitles.cs" />
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\OnePanelRule.cs" Link="DreamWeave\OnePanelRule.cs" />
     <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\HeldRaises.cs" Link="DreamWeave\HeldRaises.cs" />
+    <Compile Include="..\..\Plugins\RynthCore.Plugin.RynthDreamWeave\DreamWeave\ReadGate.cs" Link="DreamWeave\ReadGate.cs" />
     <!-- The RynthAi test tools' check/runner harness (no plugin code in it). -->
     <Compile Include="$(RynthSuiteRoot)Tools\RynthCore.RynthAiTests\Harness\Check.cs" Link="Harness\Check.cs" />
     <Compile Include="$(RynthSuiteRoot)Tools\RynthCore.RynthAiTests\Harness\Runner.cs" Link="Harness\Runner.cs" />

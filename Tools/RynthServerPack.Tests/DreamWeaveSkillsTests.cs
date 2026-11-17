@@ -31,6 +31,8 @@ internal static class DreamWeaveSkillsTests
         r.Add("dreamweave skills: the Titles page (the server's list, updates, saving)", Titles);
         r.Add("dreamweave skills: one main panel at a time, as retail", OnePanel);
         r.Add("dreamweave skills: +10 presses made while a raise is on its way wait for its answer", HeldPresses);
+        r.Add("dreamweave skills: +10 buys the last ranks when fewer than ten are left, as retail", TenToTheTop);
+        r.Add("dreamweave skills: a read dropped at logout doesn't freeze the panel (R-20261114-190620-f744)", ReadGateLostRead);
     }
 
     private static void Attributes()
@@ -315,6 +317,51 @@ internal static class DreamWeaveSkillsTests
         Check.Eq(rule.Next(true, Map), default(OnePanelRule.Step), "after a reset the first frame only learns again");
     }
 
+    // 2026-11-14, report R-20261114-190620-f744: a level-497 character's panel still read level 495 and that
+    // level's XP for next level. The panel's one-read-in-flight flag was set when a read was queued for the
+    // tick and cleared when it ran; the shared plugin drops the tick's queue at logout, so a read queued in
+    // the last frames before a logout left the flag set and no read was ever queued again.
+    private static void ReadGateLostRead()
+    {
+        var gate = new ReadGate();
+        Check.True(gate.Due(10_000, everyFrame: false), "the first frame reads");
+        Check.True(gate.Waiting, "one queued");
+        Check.False(gate.Due(10_000 + ReadGate.EveryMs, everyFrame: false), "not a second while the first waits");
+        Check.False(gate.Due(10_001, everyFrame: true), "not even every-frame while one waits");
+        gate.Done();
+        Check.False(gate.Due(10_100, everyFrame: false), "four a second");
+        Check.True(gate.Due(10_000 + ReadGate.EveryMs, everyFrame: false), "the next after 250 ms");
+        gate.Done();
+        Check.True(gate.Due(10_251, everyFrame: true), "a raise on its way: the very next frame");
+        gate.Done();
+
+        // The reported freeze: a read queued, then its queue dropped (logout), so Done never comes.
+        Check.True(gate.Due(20_000, everyFrame: false), "queued just before the logout");
+        for (long t = 20_000; t < 20_000 + ReadGate.LostAfterMs; t += 16)
+            Check.False(gate.Due(t, everyFrame: false), "still waiting for it at " + t);
+        Check.True(gate.Due(20_000 + ReadGate.LostAfterMs, everyFrame: false), "taken as lost and queued again");
+        gate.Done();
+        Check.True(gate.Due(20_000 + ReadGate.LostAfterMs + ReadGate.EveryMs, everyFrame: false), "and reading on after it");
+
+        // Logout resets it (SkillsReader.Clear): the next login's first frame reads, whatever was waiting.
+        Check.True(gate.Waiting, "a read waiting at logout");
+        gate.Reset();
+        Check.False(gate.Waiting, "forgotten");
+        Check.True(gate.Due(30_000, everyFrame: false), "the next login reads at once");
+        gate.Done();
+
+        // After a raise or a title the panel asks for a read at once.
+        Check.True(gate.Due(40_000, everyFrame: false), "a read");
+        gate.Done();
+        gate.AskNow();
+        Check.True(gate.Due(40_001, everyFrame: false), "AskNow: the next frame, not 250 ms later");
+        gate.Done();
+        // A clock reading of 0 still marks a read as waiting.
+        var zero = new ReadGate();
+        Check.True(zero.Due(0, everyFrame: false), "read at clock 0");
+        Check.True(zero.Waiting, "and it waits");
+    }
+
     private static void HeldPresses()
     {
         var held = new HeldRaises();
@@ -365,5 +412,70 @@ internal static class DreamWeaveSkillsTests
         held.Press(vital, 10_310); held.Press(vital, 10_320);
         Check.Eq(held.Count, 3, "vital +10 spam is held too");
         held.Drop();
+    }
+
+    // A #rynth-issues report, 2026-11-11 ("Can't max skills"): a trained skill untrained and trained again
+    // came back at rank 0; twenty +10s took it to 200 of 208 and +10 went dark (the engine prices +10 only
+    // with ten ranks left), so it could no longer be maxed by tens. Retail's +10 (GetCostToRaise10) buys
+    // the ranks left when fewer than ten are. The report's footer read "Experience To Raise: 180,507,736",
+    // which is the trained chart's step from 200 to 201.
+    private static void TenToTheTop()
+    {
+        uint[] tr = RetailData.TrainedSkillXp, sp = RetailData.SpecializedSkillXp;
+        Check.Eq(tr.Length - 1, 208, "trained skills top out at 208 ranks");
+        Check.Eq(sp.Length - 1, 226, "specialized at 226");
+        Check.Eq(tr[208], 4_203_819_496u, "the trained top is portal.dat's (the engine prices from the same table)");
+        Check.Eq(sp[226], 4_100_490_438u, "the specialized top too");
+        Check.Eq((long)tr[201] - tr[200], 180_507_736L, "the report's cost to raise: trained rank 200");
+
+        // The reported skill: trained, rank 200, the engine's +10 is -1.
+        var rich = SkillsSheet.Empty with { UnassignedXp = 194_045_060_050 };
+        SkillLine at200 = Skill(18, SkillClass.Trained, b: 277, buffed: 353, one: 180_507_736, ten: -1) with { Ranks = 200, XpSpent = tr[200] };
+        Check.Eq(SkillsLayout.Ten(at200), (8u, (long)tr[208] - tr[200]), "+10 at 200 of 208 buys the last 8");
+        Check.True(SkillsLayout.CanRaiseTen(rich, at200), "and is lit with the XP for them");
+        Check.False(SkillsLayout.CanRaiseTen(rich with { UnassignedXp = (long)tr[208] - tr[200] - 1 }, at200), "dark one XP short");
+        // XP from use part way into the rank counts, as the engine's own price does.
+        SkillLine partWay = at200 with { XpSpent = tr[200] + 1000 };
+        Check.Eq(SkillsLayout.Ten(partWay).Cost, (long)tr[208] - tr[200] - 1000, "XP already in the rank is not paid twice");
+        // At the top: nothing.
+        SkillLine top = at200 with { Ranks = 208, XpSpent = tr[208], CostOne = -1, Raisable = false, AtTop = true };
+        Check.Eq(SkillsLayout.Ten(top), (0u, -1L), "at the top +10 buys nothing");
+        Check.False(SkillsLayout.CanRaiseTen(rich, top), "and is dark");
+        // Ten or more left: the engine's price, as before.
+        SkillLine low = Skill(18, SkillClass.Trained, ten: 12_000) with { Ranks = 50, XpSpent = tr[50] };
+        Check.Eq(SkillsLayout.Ten(low), (10u, 12_000L), "ten left: the engine's +10");
+        Check.Eq(SkillsLayout.TenStep(tr, 50, tr[50], -1), (0u, -1L), "ten left but no engine price: don't guess");
+        Check.Eq(SkillsLayout.Ten(Skill(23, SkillClass.Untrained, ten: -1, credits: 6, trainable: true) with { Ranks = 200 }), (0u, -1L), "untrained: no chart, no +10");
+
+        // From rank 0 by tens to the very top, trained and specialized (the engine's +10 is -1 under ten left).
+        foreach ((uint[] chart, SkillClass c, int presses) in new[] { (tr, SkillClass.Trained, 21), (sp, SkillClass.Specialized, 23) })
+        {
+            SkillLine s = Skill(18, c) with { Ranks = 0, XpSpent = 0 };
+            int n = 0;
+            long paid = 0;
+            while (n < 100)
+            {
+                long engineTen = s.Ranks + 10 < chart.Length ? (long)chart[s.Ranks + 10] - s.XpSpent : -1;
+                (uint ranks, long cost) = SkillsLayout.Ten(s with { CostTen = engineTen });
+                if (ranks == 0) break;
+                n++;
+                paid += cost;
+                s = s with { Ranks = s.Ranks + ranks, XpSpent = chart[s.Ranks + ranks] };
+            }
+            Check.Eq((int)s.Ranks, chart.Length - 1, c + ": +10 reaches the top");
+            Check.Eq(n, presses, c + ": in " + presses + " presses");
+            Check.Eq(paid, (long)chart[^1], c + ": for exactly the chart's total");
+        }
+
+        // Attributes and vitals: retail's gmAttributeUI does the same.
+        uint[] at = RetailData.AttributeXp, vt = RetailData.VitalXp;
+        int atTop = at.Length - 1, vtTop = vt.Length - 1;
+        var str = new AttributeLine(1, 1, "Strength", 0, 280, 280, (long)at[atTop - 4] - at[atTop - 5], -1, true, false, (uint)(atTop - 5), at[atTop - 5]);
+        Check.Eq(AttributesPage.Ten(str), (5u, (long)at[atTop] - at[atTop - 5]), "an attribute 5 from the top: +10 buys 5");
+        Check.True(AttributesPage.CanRaiseTen(rich, str), "lit");
+        var mana = new AttributeLine(2, 5, "Mana", 0, 400, 400, (long)vt[vtTop] - vt[vtTop - 1], -1, true, false, (uint)(vtTop - 1), vt[vtTop - 1]);
+        Check.Eq(AttributesPage.Ten(mana), (1u, (long)vt[vtTop] - vt[vtTop - 1]), "a vital one from the top: +10 buys 1");
+        var maxed = mana with { Ranks = (uint)vtTop, XpSpent = vt[vtTop], CostOne = -1, Raisable = false, AtTop = true };
+        Check.False(AttributesPage.CanRaiseTen(rich, maxed), "a vital at the top: dark");
     }
 }

@@ -108,6 +108,10 @@ internal sealed class DreamWeaveBank
         Interlocked.Exchange(ref _typedByPlayer, 0);
     }
 
+    /// <summary>When the next every-minute /b goes (Environment.TickCount64); long.MaxValue when none is coming.
+    /// The offline bonus read keeps clear of it (DreamWeaveXpBonus.GapMs).</summary>
+    public long NextCheckMs => CheckEveryMinute ? _nextCheckMs : long.MaxValue;
+
     /// <summary>The every-minute check: "/b" when one is due now (and the setting is on), else null.</summary>
     public string? CheckDue(long nowMs)
     {

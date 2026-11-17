@@ -1,9 +1,10 @@
 // SkillsReader.cs - Reads the character for the Skills panel and spends XP for it, on the plugin tick.
 //
-// Reading: while the panel is drawn it asks for a read about four times a second (RequestRead, render
-// thread); the tick then reads the engine's training numbers (GetTrainingInfo, v79: the engine refreshes
-// them every 2 s while asked, and at once after a raise) and the header's properties, and publishes one
-// SkillsSheet. Nothing is read while the panel is closed.
+// Reading: while the panel is drawn it asks for a read about four times a second (ReadDue, render
+// thread; ReadGate keeps one in flight and re-asks for one that was lost); the tick then reads the
+// engine's training numbers (GetTrainingInfo, v79: the engine refreshes them every 2 s while asked, and
+// at once after a raise) and the header's properties, and publishes one SkillsSheet. Nothing is read
+// while the panel is closed. Logout forgets the character (Clear).
 //
 // Spending: the panel's raise arrow and "+10" queue a press (a raise, or a train for an untrained skill);
 // the tick sends it at the cost the newest numbers say, and the engine refuses it when its own numbers
@@ -20,12 +21,11 @@ internal sealed class SkillsReader
 {
     private const uint IntGender = 113, IntHeritage = 188, IntPkStatus = 134, IntAllegianceRank = 30, IntCharacterTitleId = 261;
     private const uint QuadAvailableLuminance = 6, QuadMaximumLuminance = 7;
-    private const long ReadEveryMs = 250;
+    private const uint IntLevel = 25, QuadTotalExperience = 1;
 
     private readonly TrainingEntryNative[] _entries = new TrainingEntryNative[128];
     private SkillsSheet _sheet = SkillsSheet.Empty;
-    private long _lastAsk;
-    private int _readQueued;
+    private readonly ReadGate _gate = new();
     private string _message = "";
     private readonly HeldRaises _held = new();
     private Action<string>? _chat;
@@ -38,25 +38,23 @@ internal sealed class SkillsReader
 
     /// <summary>
     /// Render thread, each frame the panel draws: true when a read is due (the caller queues
-    /// <see cref="Read"/> for the tick). At most four a second, one in flight.
+    /// <see cref="Read"/> for the tick). At most four a second, one in flight (ReadGate); every frame while
+    /// a raise is on its way or a press waits, to send the next one as soon as it may go.
     /// </summary>
     public bool ReadDue()
-    {
-        long now = Environment.TickCount64;
-        // A raise on its way or a press waiting: every frame, to send the next one as soon as it may go.
-        long every = _held.Count > 0 || Volatile.Read(ref _sheet).Busy ? 0 : ReadEveryMs;
-        if (now - Volatile.Read(ref _lastAsk) < every) return false;
-        if (Interlocked.Exchange(ref _readQueued, 1) == 1) return false;
-        Volatile.Write(ref _lastAsk, now);
-        return true;
-    }
+        => _gate.Due(Environment.TickCount64, _held.Count > 0 || Volatile.Read(ref _sheet).Busy);
 
-    /// <summary>Logout: forget the character.</summary>
+    /// <summary>
+    /// Logout (pump thread): forget the character, and any read the logout dropped from the tick's queue.
+    /// 2026-11-14 (R-20261114-190620-f744): nothing called this, so the last character's numbers stayed on
+    /// the panel after a relog until a read replaced them, and with a dropped read none ever did (ReadGate).
+    /// </summary>
     public void Clear()
     {
         Volatile.Write(ref _sheet, SkillsSheet.Empty);
         Volatile.Write(ref _message, "");
         _held.Drop();
+        _gate.Reset();
     }
 
     /// <summary>Plugin tick: reads the numbers and publishes a new sheet when they are in.</summary>
@@ -103,12 +101,20 @@ internal sealed class SkillsReader
             string title = SkillsLayout.Title(titleId);
             long? lumMax = Quad(host, me, QuadMaximumLuminance);
             long? lumAvail = Quad(host, me, QuadAvailableLuminance);
+            // Level and total XP straight from the player's properties (2026-11-14, R-20261114-190620-f744):
+            // the engine's property caches take the server's private updates (Level 25 on a level-up,
+            // TotalExperience 1 on every award) as they land, while the training numbers are a snapshot the
+            // engine republishes every 2 s at best, and only while its main-thread read of the character
+            // succeeds. The snapshot's own values (the same caches, read on AC's main thread) stand in when
+            // a property isn't known.
+            int level = Int(host, me, IntLevel) is int lv and > 0 ? lv : info.Level;
+            long totalXp = Quad(host, me, QuadTotalExperience) is long tx and >= 0 ? tx : info.TotalXp;
             TitleList titles = TitlesFor(me).WithDisplayed((uint)Math.Max(0, titleId));
 
             var attrList = new System.Collections.Generic.List<AttributeLine>(attrs.Length);
             foreach (AttributeLine? a in attrs) if (a != null) attrList.Add(a);
             var sheet = new SkillsSheet(name, SkillsLayout.Identity(gender, heritage, title), SkillsLayout.PkStatus(pk),
-                info.Level, info.TotalXp, info.UnassignedXp, info.SkillCredits,
+                level, totalXp, info.UnassignedXp, info.SkillCredits,
                 lumMax is > 0 ? lumAvail ?? 0 : null, lumMax is > 0 ? lumMax : null,
                 skills, info.Busy, info.SnapshotVersion, attrList, titles);
             Volatile.Write(ref _sheet, sheet);
@@ -116,7 +122,7 @@ internal sealed class SkillsReader
         }
         finally
         {
-            Volatile.Write(ref _readQueued, 0);
+            _gate.Done();
         }
     }
 
@@ -147,9 +153,15 @@ internal sealed class SkillsReader
             // Trained meanwhile (a train press) or not trained (a raise press): not what was clicked.
             if (skill == null || (t.Kind == RaiseTarget.Train) != (skill.Class < SkillClass.Trained)) { _held.Drop(); return; }
             name = skill.Name;
-            r = t.Kind == RaiseTarget.Train
-                ? host.TrainSkill(skill.Id, skill.TrainCredits)
-                : host.Raise(TrainingKind.Skill, skill.Id, t.Ten ? 10u : 1u, t.Ten ? skill.CostTen : skill.CostOne, out _);
+            if (t.Kind == RaiseTarget.Train)
+                r = host.TrainSkill(skill.Id, skill.TrainCredits);
+            else
+            {
+                // +10 is ten ranks, or the last ones when fewer than ten are left (retail's; SkillsLayout.TenStep).
+                (uint ranks, long cost) = t.Ten ? SkillsLayout.Ten(skill) : (1u, skill.CostOne);
+                if (ranks == 0) { _held.Drop(); return; }   // at the top now: the rest of the presses buy nothing
+                r = host.Raise(TrainingKind.Skill, skill.Id, ranks, cost, out _);
+            }
         }
         else
         {
@@ -157,10 +169,11 @@ internal sealed class SkillsReader
             foreach (AttributeLine x in sheet.AttributeRows) if (x.Kind == t.Kind && x.Stype == t.Id) { a = x; break; }
             if (a == null) { _held.Drop(); return; }
             name = a.Name;
-            r = host.Raise(a.IsVital ? TrainingKind.Vital : TrainingKind.Attribute, a.Stype, t.Ten ? 10u : 1u,
-                t.Ten ? a.CostTen : a.CostOne, out _);
+            (uint ranks, long cost) = t.Ten ? AttributesPage.Ten(a) : (1u, a.CostOne);
+            if (ranks == 0) { _held.Drop(); return; }
+            r = host.Raise(a.IsVital ? TrainingKind.Vital : TrainingKind.Attribute, a.Stype, ranks, cost, out _);
         }
-        Volatile.Write(ref _lastAsk, 0);   // read again at once
+        _gate.AskNow();   // read again at once
         switch (r)
         {
             case RaiseResult.Sent:
@@ -223,7 +236,7 @@ internal sealed class SkillsReader
             _titles[me] = next;
         }
         _saveTitles?.Invoke(me, next.Save());
-        Volatile.Write(ref _lastAsk, 0);   // show it at once
+        _gate.AskNow();   // show it at once
     }
 
     /// <summary>Plugin tick: show <paramref name="titleId"/> as the character's title (retail's "Set as Display Title").</summary>
@@ -232,7 +245,7 @@ internal sealed class SkillsReader
         if (titleId == 0) return;
         if (!host.HasInvokeChatParser || !host.InvokeChatParser("/rc title " + titleId.ToString(System.Globalization.CultureInfo.InvariantCulture)))
             chat("Couldn't set the title: this RynthCore can't send it (needs the engine from 2026-11-07).");
-        Volatile.Write(ref _lastAsk, 0);
+        _gate.AskNow();
     }
 
     private static int Int(RynthCoreHost host, uint id, uint stype)

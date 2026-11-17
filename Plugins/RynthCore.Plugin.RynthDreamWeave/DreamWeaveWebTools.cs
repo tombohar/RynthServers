@@ -52,6 +52,8 @@ public sealed partial class ServerPackPlugin
         try
         {
             add(DreamWeaveWeb.UsageLine());
+            add(BoardsUsage);   // DreamWeaveBoardsHost.cs
+            add(XpBonusUsage);  // DreamWeaveXpBonusHost.cs
         }
         catch (Exception)
         {

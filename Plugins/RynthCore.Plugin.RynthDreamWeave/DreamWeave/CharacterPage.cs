@@ -1,7 +1,8 @@
 // CharacterPage.cs - RynthDreamWeave's "Character" page (2026-11-07, Tom: "add this to the actual Dreamweave
 // plugin UI. The settings and the ability to open the new skills panel ... to not have to use chat
 // commands"): a tab of the DreamWeave window on RynthCore's bar (and of the /rserver window) that opens and
-// closes the Character panel (SkillsPanel), on any of its pages, and holds its setting.
+// closes the Character panel (SkillsPanel), on any of its pages, and holds its setting. Since 2026-11-15 its top
+// row is the offline bonus ("double XP time") tracker (XpBonusStrip, drawn retail like the Leaderboards page).
 using System;
 using ImGuiNET;
 using RynthCore.Plugin.ServerPack;
@@ -20,10 +21,12 @@ internal sealed class CharacterPage
     private readonly Action<bool> _setReplacesAc;
     private readonly Func<bool> _onePanel;
     private readonly Action<bool> _setOnePanel;
+    private readonly Action? _drawTop;             // the offline bonus tracker's row (XpBonusStrip), drawn first
 
     public CharacterPage(Func<bool> active, Func<int> panelState, Action<int> open, Action close,
-        Func<bool> replacesAc, Action<bool> setReplacesAc, Func<bool> onePanel, Action<bool> setOnePanel)
+        Func<bool> replacesAc, Action<bool> setReplacesAc, Func<bool> onePanel, Action<bool> setOnePanel, Action? drawTop = null)
     {
+        _drawTop = drawTop;
         _active = active;
         _panelState = panelState;
         _open = open;
@@ -35,7 +38,7 @@ internal sealed class CharacterPage
     }
 
     public ServerPage Page() => new("character", "Character",
-        "The retail Character window, whose XP for next level keeps reading past level 275 (RynthDreamWeave).", Draw);
+        "Your offline bonus (double XP) time, and the retail Character window, whose XP for next level keeps reading past level 275 (RynthDreamWeave).", Draw);
 
     private void Draw()
     {
@@ -44,6 +47,11 @@ internal sealed class CharacterPage
             SafeImGui.TextWrapped("This page is for DreamWeave. RynthCore doesn't see this world as DreamWeave "
                                   + "(check RynthCore Options > Diagnostics, or /rserver info).");
             return;
+        }
+        if (_drawTop != null)
+        {
+            _drawTop();
+            ImGui.Spacing();
         }
         SafeImGui.TextWrapped("AC's Character window (Attributes, Skills and Titles), drawn as retail draws it, with "
                               + "\"XP for next level\" read from DreamWeave's own chart past level 275, where AC's "

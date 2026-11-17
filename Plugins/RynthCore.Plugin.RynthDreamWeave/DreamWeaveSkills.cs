@@ -14,7 +14,8 @@
 // "/rc title <id>" (the engine calls AC's own sender).
 //
 // Hooks used: ServerWindows, ServerCommandVerbs, ServerChatCommand, ServerMessageInterest, ServerMessage,
-// ServerRender - none of the other DreamWeave features' (the bank check's), so they sit side by side.
+// ServerRender - none of the other DreamWeave features' (the bank check's), so they sit side by side - and
+// ServerLogout, shared with them, which calls SkillsLogout (2026-11-14).
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -88,7 +89,8 @@ public sealed partial class ServerPackPlugin
             replacesAc: () => Volatile.Read(ref _replaceAc) != 0,
             setReplacesAc: SetReplaceAc,
             onePanel: () => Volatile.Read(ref _onePanel) != 0,
-            setOnePanel: SetOnePanel);
+            setOnePanel: SetOnePanel,
+            drawTop: DrawXpBonusStrip);   // DreamWeaveXpBonusHost.cs: the offline bonus tracker
         pages.Add(page.Page());
     }
 
@@ -219,6 +221,13 @@ public sealed partial class ServerPackPlugin
 
     // ── Titles from the server ──────────────────────────────────────────
 
+    /// <summary>
+    /// Logout or character switch (pump thread, from ServerLogout): the reader forgets the character and
+    /// any read the logout dropped. 2026-11-14 (R-20261114-190620-f744): without it the panel could keep the
+    /// last read's level and XP for the rest of the session (ReadGate.cs).
+    /// </summary>
+    private void SkillsLogout() => _skillsReader.Clear();
+
     partial void ServerMessageInterest(List<uint> gameEvents)
     {
         gameEvents.Add(EventCharacterTitle);
@@ -239,11 +248,17 @@ public sealed partial class ServerPackPlugin
     {
         verbs.Add("skills");
         WebCommandVerbs(verbs);   // DreamWeaveWebTools.cs: the website verbs
+        BoardsCommandVerbs(verbs); // DreamWeaveBoardsHost.cs: /rserver boards
+        XpBonusCommandVerbs(verbs); // DreamWeaveXpBonusHost.cs: /rserver xpbonus
     }
 
     partial void ServerChatCommand(string[] parts, ref bool handled)
     {
         WebChatCommand(parts, ref handled);   // DreamWeaveWebTools.cs: a website verb
+        if (handled) return;
+        BoardsChatCommand(parts, ref handled);   // DreamWeaveBoardsHost.cs: /rserver boards
+        if (handled) return;
+        XpBonusChatCommand(parts, ref handled);  // DreamWeaveXpBonusHost.cs: /rserver xpbonus
         if (handled) return;
         if (parts.Length < 2 || !parts[1].Equals("skills", StringComparison.OrdinalIgnoreCase)) return;
         handled = true;

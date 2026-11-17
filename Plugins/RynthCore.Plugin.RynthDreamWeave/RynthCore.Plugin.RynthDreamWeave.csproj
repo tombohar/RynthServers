@@ -10,7 +10,7 @@
     <RynthPluginServerName>DreamWeave</RynthPluginServerName>
     <RynthPluginServerHosts>play.acdreamweave.com</RynthPluginServerHosts>
     <RynthPluginServerWorldNames>DreamWeave|Dream Weave</RynthPluginServerWorldNames>
-    <RynthPluginDescription>DreamWeave only: the server card (rules, server features, player commands, links, account setup) in its own window on the RynthCore bar, the retail Character panel whose XP for next level keeps reading past level 275, and the bank check every minute that gives Lum/hr its luminance. Class Abilities, Market and Suit Builder open the website logged in as this account: from buttons on the card, or from the bar icon's dropdown.</RynthPluginDescription>
+    <RynthPluginDescription>DreamWeave only: the server card (rules, server features, player commands, links, account setup) in its own window on the RynthCore bar, the retail Character panel whose XP for next level keeps reading past level 275, the bank check every minute that gives Lum/hr its luminance, a Leaderboards tab with your rank on every /top board, and your offline bonus (double XP) time on the Character tab. Class Abilities, Market and Suit Builder open the website logged in as this account: from buttons on the card, or from the bar icon's dropdown.</RynthPluginDescription>
     <!-- Declared 90, not the 66 default: a release build raises anything under 88 to the SDK's API, so the plugin would load on no current engine.
          90 is the highest API among the SDK members called outside an isolated NoInlining method: RynthAcPanel (a static field's type),
          IsAcPanelOpen, AcPanel, PanelScale, PanelDragWithLastItem, GetIconTexture and HasFramelessWindows (v90). Anything newer must stay
