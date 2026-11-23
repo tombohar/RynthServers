@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using RynthCore.Engine.UI.Sections;
 using RynthCore.Plugin.ServerPack;
@@ -27,6 +28,8 @@ internal static class ServerPackModelTests
         r.Add("server pack: the card's botting line and address", InfoText);
         r.Add("server pack: the RynthServer.Profile JSON carries the server's settings", ProfileJson);
         r.Add("server pack: the profile JSON is plain ASCII and escaped", ProfileJsonAscii);
+        r.Add("server pack: the profile's summons rows reach RynthAi's reader; none written without any", ProfileSummons);
+        r.Add("server pack: DreamWeave names its Duo Summon Gem as a holder of two summons", DreamWeaveDuoGem);
     }
 
     private static void ProfileJson()
@@ -122,6 +125,51 @@ internal static class ServerPackModelTests
         Check.False(idleDoc.RootElement.GetProperty("active").GetBoolean(), "not active");
         Check.Eq(idleDoc.RootElement.GetProperty("world").GetString(), "", "no world before login");
         Check.Eq(ServerPackProfile.BottingName(BottingPolicy.Unknown), "unknown", "unknown botting");
+    }
+
+    private static void ProfileSummons()
+    {
+        ServerPackInfo none = new("x", "X", new[] { "x.example" }, new[] { "X" });
+        string plain = ServerPackProfile.BuildJson(none, "RynthX", "1", true, "X");
+        Check.False(plain.Contains("\"summons\""), "no holders: no summons key");
+        Check.Eq(RynthCore.Plugin.Shared.ServerSummonView.ParseList(plain).Count, 0, "and the reader reads none");
+
+        ServerPackInfo with = new("x", "X", new[] { "x.example" }, new[] { "X" })
+        {
+            Summons = new[]
+            {
+                new ServerSummon(1007741, "Duo \"Gem\"", "Summon ", Slots: 2, ElementIsLast: true),
+                new ServerSummon(0, "Trio Bauble", "Held ", Slots: 3),
+            },
+        };
+        string json = ServerPackProfile.BuildJson(with, "RynthX", "1", true, "X");
+        using (JsonDocument doc = JsonDocument.Parse(json)) Check.Eq(doc.RootElement.GetProperty("summons").GetArrayLength(), 2, "two rows written");
+        var rows = RynthCore.Plugin.Shared.ServerSummonView.ParseList(json);
+        Check.Eq(rows.Count, 2, "two rows read");
+        Check.Eq(rows[0].Wcid, 1007741u, "wcid");
+        Check.Eq(rows[0].NameMatch, "Duo \"Gem\"", "name, escaped and read back");
+        Check.Eq(rows[0].SlotPrefix, "Summon ", "slot prefix keeps its space");
+        Check.True(rows[0].Slots == 2 && rows[0].ElementIsLast, "slots and elementIsLast");
+        Check.True(rows[1].Wcid == 0 && rows[1].Slots == 3 && !rows[1].ElementIsLast, "a by-name row");
+        Check.True(rows[0].Matches(1007741, "anything") && !rows[0].Matches(1007740, "Duo \"Gem\""), "told by wcid when known");
+        Check.True(rows[1].Matches(0, "A Trio Bauble"), "a by-name row by name");
+    }
+
+    /// <summary>The Duo Summon Gem row in DreamWeave's ServerData.cs (ACE-DreamWeave wcid 1007741).</summary>
+    private static void DreamWeaveDuoGem()
+    {
+        string dir = AppContext.BaseDirectory;
+        string? file = null;
+        for (var d = new DirectoryInfo(dir); d != null && file == null; d = d.Parent)
+        {
+            string f = Path.Combine(d.FullName, "Plugins", "RynthCore.Plugin.RynthDreamWeave", "ServerData.cs");
+            if (File.Exists(f)) file = f;
+        }
+        Check.True(file != null, "DreamWeave's ServerData.cs is found");
+        if (file == null) return;
+        string src = File.ReadAllText(file);
+        Check.True(src.Contains("new ServerSummon(1007741, \"Duo Summon Gem\", \"Summon \", Slots: 2, ElementIsLast: true)"),
+                   "the gem's row: wcid 1007741, by its name too, \"Summon N:\" lines, two slots, its element the second's");
     }
 
     private static void ProfileJsonAscii()

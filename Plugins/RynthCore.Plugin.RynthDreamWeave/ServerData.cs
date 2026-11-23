@@ -73,6 +73,17 @@ internal static class ServerData
                 new ServerCommand("/charsheet", "publish a web character sheet (off, rotate)"),
                 new ServerCommand("/fi", "resend nearby monsters and NPCs (invisible creatures), once a minute"),
             },
+            // The Duo Summon Gem (ACE-DreamWeave Custom Summons, wcid 1007741: Entity/DuoSummonGem.cs).
+            // A PetDevice bought blank that absorbs two combat summoning items; once it holds both it
+            // summons the first one's pet (and the second's too with Summon 2x) from one pool of 50
+            // charges. Its LongDesc (SummonItemDescription.ComposeDuo) names them "Summon 1: <item>",
+            // "Summon 2: <item>"; its UiEffects carries the second item's element bits only. A blank or
+            // half-full gem has no charges and summons nothing. The client is sent neither its
+            // DuoSummonGem flag nor the stored slots, so the description is what RynthAi reads.
+            Summons = new[]
+            {
+                new ServerSummon(1007741, "Duo Summon Gem", "Summon ", Slots: 2, ElementIsLast: true),
+            },
             Discord = "https://discord.gg/p2h3yca4BD",
             Wiki = "https://wiki.acdreamweave.com",
             Source = "public AC server list (acresources/serverslist), checked 2026-10-13; features and commands from " +

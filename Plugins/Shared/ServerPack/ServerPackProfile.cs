@@ -185,6 +185,26 @@ internal static class ServerPackProfile
             for (int i = 0; i < info.TrinketExcept.Length; i++) { if (i > 0) sb.Append(','); Str(sb, info.TrinketExcept[i]); }
             sb.Append("]}");
         }
+        // Added within schema 1 (2026-11-22), only when the server has them: summon items that hold
+        // other summoning items (RynthAi's combat summoner reads each one's held items and elements).
+        if (info.Summons.Length > 0)
+        {
+            sb.Append(",\"summons\":[");
+            for (int i = 0; i < info.Summons.Length; i++)
+            {
+                ServerSummon m = info.Summons[i];
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"wcid\":").Append(m.Wcid);
+                sb.Append(",\"nameMatch\":");
+                Str(sb, m.NameMatch);
+                sb.Append(",\"slotPrefix\":");
+                Str(sb, m.SlotPrefix);
+                sb.Append(",\"slots\":").Append(m.Slots);
+                sb.Append(",\"elementIsLast\":").Append(m.ElementIsLast ? "true" : "false");
+                sb.Append('}');
+            }
+            sb.Append(']');
+        }
         Field(sb, "discord", info.Discord);
         Field(sb, "website", info.Website);
         Field(sb, "wiki", info.Wiki);

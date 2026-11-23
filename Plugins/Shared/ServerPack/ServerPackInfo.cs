@@ -45,6 +45,17 @@ internal sealed record ServerSalvage(string Bench, int Material, string Effect, 
                                      bool Prepared = false, int Order = 0, bool AfterCap = false,
                                      string StackGroup = "", int StackCap = 0);
 
+/// <summary>
+/// One summon item of the server's own that holds other summoning items (a "holder"), for RynthAi's
+/// combat summoner (its profile's "summons" list; RynthSuite's ServerSummonView reads it).
+/// </summary>
+/// <param name="Wcid">The item's wcid (0 = told by name only).</param>
+/// <param name="NameMatch">The item's name holds this ("" with a wcid = by wcid only).</param>
+/// <param name="SlotPrefix">Its appraisal description names each held item on a line "&lt;prefix&gt;&lt;n&gt;: &lt;name&gt;".</param>
+/// <param name="Slots">It summons nothing until it holds this many.</param>
+/// <param name="ElementIsLast">Its own element (UiEffects) is the last held item's.</param>
+internal sealed record ServerSummon(uint Wcid, string NameMatch, string SlotPrefix, int Slots = 2, bool ElementIsLast = false);
+
 internal sealed class ServerPackInfo
 {
     public ServerPackInfo(string id, string name, string[] hosts, string[] worldNames)
@@ -85,6 +96,8 @@ internal sealed class ServerPackInfo
     /// </summary>
     public string[] TrinketNames { get; init; } = Array.Empty<string>();
     public string[] TrinketExcept { get; init; } = Array.Empty<string>();
+    /// <summary>The server's own summon items that hold other summoning items; empty = none.</summary>
+    public ServerSummon[] Summons { get; init; } = Array.Empty<ServerSummon>();
     /// <summary>"3 accounts", "3 active characters", ...; empty when not published.</summary>
     public string AccountLimit { get; init; } = string.Empty;
     public BottingPolicy Botting { get; init; } = BottingPolicy.Unknown;
