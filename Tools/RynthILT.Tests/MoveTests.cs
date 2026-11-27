@@ -381,7 +381,10 @@ internal static class MoveTests
         // VaultedDungeonsEnabled was appended (2026-10-18): the Vaulted Dungeons master switch.
         // BackAwayFrom was appended (2026-10-20): the generic back-away RynthILT's Handler ring evade asks for.
         // SetPlayerCounter too (2026-10-20): the T11 wield counters RynthILT reads from /aug.
-        Check.Eq(sizeof(RynthAiHubApiV1), 8 + 14 * IntPtr.Size, "RynthAiHubApiV1: header + 14 functions");
+        // LootActions, VendorSells and TradeGives (2026-11-26): RynthSort's pack jobs; RynthILT doesn't call them.
+        Check.Eq(sizeof(RynthAiHubApiV1), 8 + 17 * IntPtr.Size, "RynthAiHubApiV1: header + 17 functions");
+        Check.Eq((int)Marshal.OffsetOf<RynthAiHubApiV1>(nameof(RynthAiHubApiV1.TradeGives)), RynthAiHubApiV1.TradeGivesOffset,
+            "TradeGivesOffset is where the field really is");
         Check.Eq((int)Marshal.OffsetOf<RynthAiHubApiV1>(nameof(RynthAiHubApiV1.SetPlayerCounter)), RynthAiHubApiV1.SetPlayerCounterOffset,
             "SetPlayerCounterOffset is where the field really is");
         Check.Eq((int)Marshal.OffsetOf<RynthAiHubApiV1>(nameof(RynthAiHubApiV1.BackAwayFrom)), RynthAiHubApiV1.BackAwayFromOffset,
